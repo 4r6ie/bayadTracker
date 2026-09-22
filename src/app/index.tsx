@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PaymentCard } from '../components/PaymentCard';
+import { routes } from '../constants/routes';
 import {
   getPayments,
   initializeDatabase,
@@ -80,7 +81,7 @@ export default function PaymentsScreen() {
         ListHeaderComponent={
           <Pressable
             style={styles.addButton}
-            onPress={() => router.push('/add-payment')}
+            onPress={() => router.push(routes.addPayment)}
           >
             <Text style={styles.addLabel}>+ Add Payment</Text>
           </Pressable>
@@ -90,7 +91,7 @@ export default function PaymentsScreen() {
             payment={item}
             onPress={() =>
               router.push({
-                pathname: '/payment/[id]',
+                pathname: routes.paymentDetails,
                 params: { id: String(item.id) },
               })
             }
