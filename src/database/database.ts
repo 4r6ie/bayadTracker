@@ -1,20 +1,41 @@
 import * as SQLite from 'expo-sqlite';
 
-import { migrateDatabase } from './migrations';
-
 const DATABASE_NAME = 'bayadtracker.db';
 
 let databasePromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
-async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
+async function openDatabase(): Promise<SQLite.SQLiteDatabase> {
   const db = await SQLite.openDatabaseAsync(DATABASE_NAME);
-  await migrateDatabase(db);
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      payer_name TEXT NOT NULL,
+      amount REAL NOT NULL,
+      description TEXT NOT NULL,
+      payment_date TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `);
   return db;
 }
 
-export function initializeDatabase(): Promise<SQLite.SQLiteDatabase> {
+/**
+ * Returns a shared SQLite connection.
+ * The table is created on first use, so data persists between app restarts.
+ */
+export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   if (!databasePromise) {
-    databasePromise = openAndMigrate();
+    databasePromise = openDatabase().catch((error) => {
+      // Reset so a failed open can be retried instead of caching a rejection.
+      databasePromise = null;
+      throw error;
+    });
   }
   return databasePromise;
+}
+
+/** Used by the repository to create the table; safe to call from anywhere. */
+export async function initializeDatabase(): Promise<SQLite.SQLiteDatabase> {
+  return getDatabase();
 }

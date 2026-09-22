@@ -1,86 +1,74 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-
-import { Colors, Radius, Spacing } from '@/constants/colors';
-import type { Payment } from '@/types/payment';
-import { formatCurrency } from '@/utils/currency';
-import { formatDisplayDate } from '@/utils/date';
-import { StatusBadge } from './StatusBadge';
+import type { Payment } from '../types/payment';
+import { formatAmount, formatDisplayDate } from '../utils/validation';
 
 interface PaymentCardProps {
   payment: Payment;
   onPress: () => void;
 }
 
+/** One payment in the list. Values are rendered as plain text only. */
 export function PaymentCard({ payment, onPress }: PaymentCardProps) {
   return (
     <Pressable
       onPress={onPress}
-      android_ripple={{ color: Colors.background }}
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
       <View style={styles.topRow}>
         <View style={styles.info}>
           <Text style={styles.payer} numberOfLines={1}>
-            {payment.payer_name}
+            {payment.payerName}
           </Text>
           <Text style={styles.description} numberOfLines={1}>
             {payment.description}
           </Text>
         </View>
-        <Text style={styles.amount}>{formatCurrency(payment.amount)}</Text>
+        <Text style={styles.amount}>{formatAmount(payment.amount)}</Text>
       </View>
-      <View style={styles.bottomRow}>
-        <Text style={styles.date}>{formatDisplayDate(payment.payment_date)}</Text>
-        <StatusBadge status={payment.status} />
-      </View>
+      <Text style={styles.date}>{formatDisplayDate(payment.paymentDate)}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.md,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: Colors.border,
-    padding: Spacing.lg,
-    marginBottom: Spacing.md,
+    borderColor: '#E1E7E3',
+    padding: 16,
+    marginBottom: 12,
   },
-  cardPressed: {
+  pressed: {
     opacity: 0.7,
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: Spacing.md,
+    marginBottom: 8,
   },
   info: {
     flex: 1,
-    marginRight: Spacing.lg,
+    marginRight: 16,
   },
   payer: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.text,
+    color: '#17211C',
     marginBottom: 2,
   },
   description: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: '#5B6660',
   },
   amount: {
     fontSize: 16,
     fontWeight: '700',
-    color: Colors.primaryDark,
-  },
-  bottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    color: '#0C5C3E',
   },
   date: {
     fontSize: 13,
-    color: Colors.textMuted,
+    color: '#8A948E',
   },
 });

@@ -1,82 +1,141 @@
-import type { PaymentInput, PaymentStatus } from '@/types/payment';
-import { PAYMENT_STATUSES } from '@/types/payment';
-import { parseAmountInput } from '@/utils/currency';
-import { parseISODate } from '@/utils/date';
+import type { PaymentInput } from '../types/payment';
 
+/** Raw text typed by the user in the add / edit form. */
 export interface PaymentFormValues {
-  payer_name: string;
-  description: string;
+  payerName: string;
   amount: string;
-  payment_date: string;
-  status: PaymentStatus;
-  notes: string;
+  description: string;
+  paymentDate: string;
 }
 
 export interface PaymentFormErrors {
-  payer_name?: string;
-  description?: string;
+  payerName?: string;
   amount?: string;
-  payment_date?: string;
-  status?: string;
-  notes?: string;
+  description?: string;
+  paymentDate?: string;
 }
 
-export function createEmptyForm(): PaymentFormValues {
-  return {
-    payer_name: '',
-    description: '',
-    amount: '',
-    payment_date: '',
-    status: 'PAID',
-    notes: '',
-  };
+/** `2026-09-22` -> `September 22, 2026`. Falls back to the raw value. */
+export function formatDisplayDate(iso: string): string {
+  const date = parseDateInput(iso);
+  if (!date) {
+    return iso;
+  }
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
 }
 
-export function validatePaymentForm(values: PaymentFormValues): PaymentFormErrors {
+/** `1500` -> `₱1,500.00`. Never throws on bad data. */
+export function formatAmount(amount: number): string {
+  const safeAmount = Number.isFinite(amount) ? amount : 0;
+  return new Intl.NumberFormat('en-PH', {
+    style: 'currency',
+    currency: 'PHP',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(safeAmount);
+}
+
+/** Today's date as `YYYY-MM-DD`, used as the form default. */
+export function todayISO(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Accepts plain numbers only (`1500`, `1500.50`).
+ * Rejects negatives, zero, peso signs, letters, and anything else.
+ */
+export function parseAmount(text: string): number | null {
+  const normalized = text.trim().replace(/,/g, '');
+  if (normalized === '' || normalized.includes('₱')) {
+    return null;
+  }
+  if (!/^\d+(\.\d{1,2})?$/.test(normalized)) {
+    return null;
+  }
+  const value = Number(normalized);
+  if (!Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+  return value;
+}
+
+/** Returns a Date only when `value` is a real `YYYY-MM-DD` date. */
+export function parseDateInput(value: string): Date | null {
+  const trimmed = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return null;
+  }
+  const [year, month, day] = trimmed.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+  return date;
+}
+
+/** Validates every field before it reaches the database. */
+export function validatePaymentForm(
+  values: PaymentFormValues
+): PaymentFormErrors {
   const errors: PaymentFormErrors = {};
 
-  const payerName = values.payer_name.trim();
+  const payerName = values.payerName.trim().replace(/\s+/g, ' ');
   if (!payerName) {
-    errors.payer_name = 'Payer name is required.';
+    errors.payerName = 'Payer name is required.';
   } else if (payerName.length < 2) {
-    errors.payer_name = 'Payer name must be at least 2 characters.';
+    errors.payerName = 'Payer name must be at least 2 characters.';
+  }
+
+  const amount = values.amount.trim();
+  if (!amount) {
+    errors.amount = 'Amount is required.';
+  } else if (parseAmount(amount) === null) {
+    errors.amount = 'Enter a valid amount greater than 0 (numbers only).';
   }
 
   if (!values.description.trim()) {
     errors.description = 'Description is required.';
   }
 
-  if (!values.amount.trim()) {
-    errors.amount = 'Amount is required.';
-  } else if (parseAmountInput(values.amount) === null) {
-    errors.amount = 'Enter a valid amount greater than 0.';
-  }
-
-  if (!values.payment_date) {
-    errors.payment_date = 'Payment date is required.';
-  } else if (parseISODate(values.payment_date) === null) {
-    errors.payment_date = 'Payment date is invalid.';
-  }
-
-  if (!PAYMENT_STATUSES.includes(values.status)) {
-    errors.status = 'Select a valid status.';
+  if (!values.paymentDate.trim()) {
+    errors.paymentDate = 'Payment date is required (YYYY-MM-DD).';
+  } else if (parseDateInput(values.paymentDate) === null) {
+    errors.paymentDate = 'Enter a valid date as YYYY-MM-DD.';
   }
 
   return errors;
 }
 
-export function toPaymentInput(values: PaymentFormValues): PaymentInput | null {
-  const amount = parseAmountInput(values.amount);
+/**
+ * Converts validated form text into a storable record.
+ * Returns `null` when invalid, so callers never save bad data.
+ */
+export function toPaymentInput(
+  values: PaymentFormValues
+): PaymentInput | null {
+  if (Object.keys(validatePaymentForm(values)).length > 0) {
+    return null;
+  }
+  const amount = parseAmount(values.amount.trim());
   if (amount === null) {
     return null;
   }
-  const notes = values.notes.trim();
   return {
-    payer_name: values.payer_name.trim(),
-    description: values.description.trim(),
+    payerName: values.payerName.trim().replace(/\s+/g, ' '),
     amount,
-    payment_date: values.payment_date,
-    status: values.status,
-    notes: notes ? notes : null,
+    description: values.description.trim(),
+    paymentDate: values.paymentDate.trim(),
   };
 }
