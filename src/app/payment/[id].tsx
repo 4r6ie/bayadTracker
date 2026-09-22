@@ -13,6 +13,7 @@ import {
   deletePayment,
   getPaymentById,
 } from '../../database/paymentRepository';
+import { routes } from '../../constants/routes';
 import type { Payment } from '../../types/payment';
 import { formatAmount, formatDisplayDate } from '../../utils/validation';
 
@@ -23,22 +24,37 @@ export default function PaymentDetailsScreen() {
   const [payment, setPayment] = useState<Payment | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
-  const load = useCallback(async () => {
-    try {
-      setPayment(await getPaymentById(id));
-    } catch (error) {
-      if (__DEV__) {
-        console.error('Failed to load payment', error);
-      }
-      Alert.alert('Unable to Load', 'Unable to load payment. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
   useFocusEffect(
     useCallback(() => {
+      let cancelled = false;
+      async function load() {
+        try {
+          const loaded = await getPaymentById(id);
+          if (cancelled) {
+            return;
+          }
+          setPayment(loaded);
+        } catch (error) {
+          if (!cancelled) {
+            if (__DEV__) {
+              console.error('Failed to load payment', error);
+            }
+            Alert.alert(
+              'Unable to Load',
+              'Unable to load payment. Please try again.'
+            );
+          }
+        } finally {
+          if (!cancelled) {
+            setLoading(false);
+          }
+        }
+      }
       load();
-    }, [load])
+      return () => {
+        cancelled = true;
+      };
+    }, [id])
   );
   function handleDelete() {
     Alert.alert('Delete Payment?', 'Are you sure?', [
@@ -96,7 +112,7 @@ export default function PaymentDetailsScreen() {
         <Pressable
           style={[styles.button, styles.editButton]}
           onPress={() =>
-            router.push({ pathname: '/payment/edit', params: { id: String(payment.id) } })
+            router.push({ pathname: routes.editPayment, params: { id: String(payment.id) } })
           }
         >
           <Text style={styles.editLabel}>Edit</Text>
