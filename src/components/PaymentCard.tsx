@@ -1,31 +1,118 @@
+import { useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import ReanimatedSwipeable, {
+  type SwipeableMethods,
+} from 'react-native-gesture-handler/ReanimatedSwipeable';
 import type { Payment } from '../types/payment';
+import { tapFeedback } from '../utils/feedback';
 import { formatAmount, formatDisplayDate } from '../utils/validation';
 
 interface PaymentCardProps {
   payment: Payment;
+  /** Tapping the row opens the payment details screen. */
   onPress: () => void;
+  /** Revealed by swiping the row to the left. */
+  onEdit: () => void;
+  /** Revealed by swiping the row to the right. */
+  onDelete: () => void;
 }
 
-/** One payment in the list. Values are rendered as plain text only. */
-export function PaymentCard({ payment, onPress }: PaymentCardProps) {
+/**
+ * One payment in the list. Values are rendered as plain text only.
+ *
+ * The row swipes both ways: right reveals Delete, left reveals Edit. Tapping it
+ * still opens the details screen, so the swipe is a shortcut, not the only way
+ * in. Requires a `GestureHandlerRootView` above it, which `src/app/_layout.tsx`
+ * provides.
+ */
+export function PaymentCard({
+  payment,
+  onPress,
+  onEdit,
+  onDelete,
+}: PaymentCardProps) {
+  const swipeable = useRef<SwipeableMethods>(null);
+
+  function runAction(action: () => void) {
+    // Close first: otherwise returning from the edit screen, or cancelling the
+    // delete alert, would leave the row sitting open.
+    swipeable.current?.close();
+    action();
+  }
+
+  return (
+    <ReanimatedSwipeable
+      ref={swipeable}
+      friction={2}
+      leftThreshold={40}
+      rightThreshold={40}
+      overshootLeft={false}
+      overshootRight={false}
+      renderLeftActions={() => (
+        <SwipeAction
+          label="Delete"
+          color="#C63B3B"
+          side="left"
+          onPress={() => runAction(onDelete)}
+        />
+      )}
+      renderRightActions={() => (
+        <SwipeAction
+          label="Edit"
+          color="#127A52"
+          side="right"
+          onPress={() => runAction(onEdit)}
+        />
+      )}
+    >
+      <Pressable
+        onPress={() => {
+          tapFeedback();
+          onPress();
+        }}
+        style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      >
+        <View style={styles.topRow}>
+          <View style={styles.info}>
+            <Text style={styles.payer} numberOfLines={1}>
+              {payment.payerName}
+            </Text>
+            <Text style={styles.description} numberOfLines={1}>
+              {payment.description}
+            </Text>
+          </View>
+          <Text style={styles.amount}>{formatAmount(payment.amount)}</Text>
+        </View>
+        <Text style={styles.date}>{formatDisplayDate(payment.paymentDate)}</Text>
+      </Pressable>
+    </ReanimatedSwipeable>
+  );
+}
+
+function SwipeAction({
+  label,
+  color,
+  side,
+  onPress,
+}: {
+  label: string;
+  color: string;
+  side: 'left' | 'right';
+  onPress: () => void;
+}) {
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => [
+        styles.action,
+        side === 'left' ? styles.actionLeft : styles.actionRight,
+        { backgroundColor: color },
+        pressed && styles.actionPressed,
+      ]}
     >
-      <View style={styles.topRow}>
-        <View style={styles.info}>
-          <Text style={styles.payer} numberOfLines={1}>
-            {payment.payerName}
-          </Text>
-          <Text style={styles.description} numberOfLines={1}>
-            {payment.description}
-          </Text>
-        </View>
-        <Text style={styles.amount}>{formatAmount(payment.amount)}</Text>
-      </View>
-      <Text style={styles.date}>{formatDisplayDate(payment.paymentDate)}</Text>
+      <Text style={styles.actionLabel}>{label}</Text>
     </Pressable>
   );
 }
@@ -70,5 +157,28 @@ const styles = StyleSheet.create({
   date: {
     fontSize: 13,
     color: '#8A948E',
+  },
+  action: {
+    // Matches the card's height (its own bottom margin included), so the
+    // revealed strip lines up with the row instead of spilling into the gap.
+    width: 96,
+    marginBottom: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionLeft: {
+    marginRight: 8,
+  },
+  actionRight: {
+    marginLeft: 8,
+  },
+  actionPressed: {
+    opacity: 0.8,
+  },
+  actionLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

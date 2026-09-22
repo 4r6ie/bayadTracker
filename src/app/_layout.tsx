@@ -1,9 +1,14 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 export default function RootLayout() {
   return (
-    <>
+    // `Swipeable` on the payment rows only responds to gestures inside a
+    // GestureHandlerRootView. expo-router does not mount one for the native
+    // stack, so the app provides it here, once, at the root.
+    <GestureHandlerRootView style={styles.root}>
       <StatusBar style="dark" />
       <Stack
         screenOptions={{
@@ -22,6 +27,12 @@ export default function RootLayout() {
         />
         <Stack.Screen name="payment/edit" options={{ title: 'Edit Payment' }} />
       </Stack>
-    </>
+    </GestureHandlerRootView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+});
