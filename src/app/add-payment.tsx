@@ -2,6 +2,8 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -58,51 +60,56 @@ export default function AddPaymentScreen() {
   }
 
   return (
-    <ScrollView
+    <KeyboardAvoidingView
       style={styles.screen}
-      contentContainerStyle={styles.content}
-      keyboardShouldPersistTaps="handled"
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Field
-        label="Payer Name"
-        value={payerName}
-        onChangeText={setPayerName}
-        placeholder="e.g. Juan Dela Cruz"
-        error={errors.payerName}
-      />
-      <Field
-        label="Amount"
-        value={amount}
-        onChangeText={setAmount}
-        placeholder="1500.00"
-        keyboardType="decimal-pad"
-        error={errors.amount}
-      />
-      <Field
-        label="Description"
-        value={description}
-        onChangeText={setDescription}
-        placeholder="e.g. Electricity Bill"
-        error={errors.description}
-      />
-      <Field
-        label="Payment Date (YYYY-MM-DD)"
-        value={paymentDate}
-        onChangeText={setPaymentDate}
-        placeholder="2026-09-22"
-        error={errors.paymentDate}
-      />
-
-      <Pressable
-        style={[styles.saveButton, saving && styles.disabled]}
-        onPress={handleSave}
-        disabled={saving}
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.saveLabel}>
-          {saving ? 'Saving...' : 'Save Payment'}
-        </Text>
-      </Pressable>
-    </ScrollView>
+        <Field
+          label="Payer Name"
+          value={payerName}
+          onChangeText={setPayerName}
+          placeholder="e.g. Juan Dela Cruz"
+          error={errors.payerName}
+        />
+        <Field
+          label="Amount"
+          value={amount}
+          onChangeText={setAmount}
+          placeholder="1500.00"
+          keyboardType="decimal-pad"
+          error={errors.amount}
+        />
+        <Field
+          label="Description"
+          value={description}
+          onChangeText={setDescription}
+          placeholder="e.g. Electricity Bill"
+          error={errors.description}
+        />
+        <Field
+          label="Payment Date (YYYY-MM-DD)"
+          value={paymentDate}
+          onChangeText={setPaymentDate}
+          placeholder="2026-09-22"
+          error={errors.paymentDate}
+        />
+
+        <Pressable
+          style={[styles.saveButton, saving && styles.disabled]}
+          onPress={handleSave}
+          disabled={saving}
+        >
+          <Text style={styles.saveLabel}>
+            {saving ? 'Saving...' : 'Save Payment'}
+          </Text>
+        </Pressable>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

@@ -33,9 +33,12 @@ function isValidId(id: number): boolean {
   return Number.isInteger(id) && id > 0;
 }
 
-export async function initializeDatabase(): Promise<void> {
-  await getDatabase();
-}
+/**
+ * Re-exported so screens only ever import from the repository layer.
+ * The single implementation lives in `./database`, which creates the
+ * `payments` table when the shared connection is first opened.
+ */
+export { initializeDatabase } from './database';
 
 export async function getPayments(): Promise<Payment[]> {
   const db = await getDatabase();

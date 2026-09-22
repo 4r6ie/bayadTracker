@@ -48,10 +48,17 @@ Data flow: `UI → Repository → SQLite`. No SQL in screens.
 
 ## Repository functions
 
-`initializeDatabase()`, `createPayment()`, `getPayments()`,
-`getPaymentById()`, `updatePayment()`, `deletePayment()` — all in
-`src/database/paymentRepository.ts`, all parameterized (`?` binding, never
-string concatenation).
+`createPayment()`, `getPayments()`, `getPaymentById()`, `updatePayment()`,
+`deletePayment()` live in `src/database/paymentRepository.ts` and are all
+parameterized (`?` binding, never string concatenation).
+
+`initializeDatabase()` lives in `src/database/database.ts` (it opens the shared
+connection and creates the table) and is re-exported by the repository, so
+screens import from the repository only.
+
+Both add and edit forms wrap their `ScrollView` in a `KeyboardAvoidingView`
+(`padding` on iOS, `undefined` on Android) so the keyboard never covers the
+save button.
 
 Table `payments`: `id`, `payer_name`, `amount`, `description`,
 `payment_date`, `created_at`, `updated_at`.

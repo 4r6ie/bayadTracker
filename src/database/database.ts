@@ -35,7 +35,11 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   return databasePromise;
 }
 
-/** Used by the repository to create the table; safe to call from anywhere. */
+/**
+ * Opens the shared connection (creating the `payments` table on first use)
+ * and returns it. Safe to call from anywhere and as often as needed: the
+ * connection promise is memoized, so the table is set up only once.
+ */
 export async function initializeDatabase(): Promise<SQLite.SQLiteDatabase> {
   return getDatabase();
 }

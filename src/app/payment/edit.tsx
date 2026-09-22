@@ -1,8 +1,10 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -30,34 +32,36 @@ export default function EditPaymentScreen() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [saving, setSaving] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const payment = await getPaymentById(id);
-        if (cancelled) return;
-        if (!payment) {
-          setNotFound(true);
-        } else {
-          setPayerName(payment.payerName);
-          setAmount(String(payment.amount));
-          setDescription(payment.description);
-          setPaymentDate(payment.paymentDate);
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      async function load() {
+        try {
+          const payment = await getPaymentById(id);
+          if (cancelled) return;
+          if (!payment) {
+            setNotFound(true);
+          } else {
+            setPayerName(payment.payerName);
+            setAmount(String(payment.amount));
+            setDescription(payment.description);
+            setPaymentDate(payment.paymentDate);
+          }
+        } catch (error) {
+          if (!cancelled) {
+            if (__DEV__) console.error('Failed to load payment', error);
+            Alert.alert('Unable to Load', 'Unable to load payment. Please try again.');
+          }
+        } finally {
+          if (!cancelled) setLoading(false);
         }
-      } catch (error) {
-        if (!cancelled) {
-          if (__DEV__) console.error('Failed to load payment', error);
-          Alert.alert('Unable to Load', 'Unable to load payment. Please try again.');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
       }
-    }
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [id]);
+      load();
+      return () => {
+        cancelled = true;
+      };
+    }, [id])
+  );
   async function handleSave() {
     const values = { payerName, amount, description, paymentDate };
     const result = validatePaymentForm(values);
@@ -100,15 +104,55 @@ export default function EditPaymentScreen() {
     );
   }
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Field label="Payer Name" value={payerName} onChangeText={setPayerName} placeholder="e.g. Juan Dela Cruz" error={errors.payerName} />
-      <Field label="Amount" value={amount} onChangeText={setAmount} placeholder="1500.00" keyboardType="decimal-pad" error={errors.amount} />
-      <Field label="Description" value={description} onChangeText={setDescription} placeholder="e.g. Electricity Bill" error={errors.description} />
-      <Field label="Payment Date (YYYY-MM-DD)" value={paymentDate} onChangeText={setPaymentDate} placeholder="2026-09-22" error={errors.paymentDate} />
-      <Pressable style={[styles.saveButton, saving && styles.disabled]} onPress={handleSave} disabled={saving}>
-        <Text style={styles.saveLabel}>{saving ? 'Saving...' : 'Save Changes'}</Text>
-      </Pressable>
-    </ScrollView>
+    <KeyboardAvoidingView
+      style={styles.screen}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Field
+          label="Payer Name"
+          value={payerName}
+          onChangeText={setPayerName}
+          placeholder="e.g. Juan Dela Cruz"
+          error={errors.payerName}
+        />
+        <Field
+          label="Amount"
+          value={amount}
+          onChangeText={setAmount}
+          placeholder="1500.00"
+          keyboardType="decimal-pad"
+          error={errors.amount}
+        />
+        <Field
+          label="Description"
+          value={description}
+          onChangeText={setDescription}
+          placeholder="e.g. Electricity Bill"
+          error={errors.description}
+        />
+        <Field
+          label="Payment Date (YYYY-MM-DD)"
+          value={paymentDate}
+          onChangeText={setPaymentDate}
+          placeholder="2026-09-22"
+          error={errors.paymentDate}
+        />
+        <Pressable
+          style={[styles.saveButton, saving && styles.disabled]}
+          onPress={handleSave}
+          disabled={saving}
+        >
+          <Text style={styles.saveLabel}>
+            {saving ? 'Saving...' : 'Save Changes'}
+          </Text>
+        </Pressable>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 function Field({ label, value, onChangeText, placeholder, keyboardType = 'default', error }: { label: string; value: string; onChangeText: (text: string) => void; placeholder: string; keyboardType?: 'default' | 'decimal-pad'; error?: string }) {
