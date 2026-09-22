@@ -8,9 +8,11 @@
     "scheme": "bayadtracker",
     "userInterfaceStyle": "light",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.argie321.bayadtracker"
     },
     "android": {
+      "package": "com.argie321.bayadtracker",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -38,6 +40,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "153e0bf8-e218-4ceb-8874-3c472f7ea69f"
+      }
+    },
+    "owner": "argie321"
   }
 }
