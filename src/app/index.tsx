@@ -10,15 +10,19 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PaymentCard } from '../components/PaymentCard';
+import { PaymentSummaryCard } from '../components/PaymentSummaryCard';
 import { routes } from '../constants/routes';
 import {
   getPayments,
+  getPaymentSummary,
   initializeDatabase,
+  type PaymentSummary,
 } from '../database/paymentRepository';
 import type { Payment } from '../types/payment';
 
 export default function PaymentsScreen() {
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [summary, setSummary] = useState<PaymentSummary>({ count: 0, total: 0 });
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
@@ -26,7 +30,12 @@ export default function PaymentsScreen() {
     try {
       setFailed(false);
       await initializeDatabase();
-      setPayments(await getPayments());
+      const [nextPayments, nextSummary] = await Promise.all([
+        getPayments(),
+        getPaymentSummary(),
+      ]);
+      setPayments(nextPayments);
+      setSummary(nextSummary);
     } catch (error) {
       if (__DEV__) {
         console.error('Failed to load payments', error);
@@ -79,12 +88,15 @@ export default function PaymentsScreen() {
         keyExtractor={(payment) => String(payment.id)}
         contentContainerStyle={styles.listContent}
         ListHeaderComponent={
-          <Pressable
-            style={styles.addButton}
-            onPress={() => router.push(routes.addPayment)}
-          >
-            <Text style={styles.addLabel}>+ Add Payment</Text>
-          </Pressable>
+          <View>
+            <PaymentSummaryCard summary={summary} />
+            <Pressable
+              style={styles.addButton}
+              onPress={() => router.push(routes.addPayment)}
+            >
+              <Text style={styles.addLabel}>+ Add Payment</Text>
+            </Pressable>
+          </View>
         }
         renderItem={({ item }) => (
           <PaymentCard

@@ -50,6 +50,38 @@ export async function getPayments(): Promise<Payment[]> {
   return rows.map(toPayment);
 }
 
+/** Totals for the whole `payments` table, shown above the list. */
+export interface PaymentSummary {
+  count: number;
+  total: number;
+}
+
+interface PaymentSummaryRow {
+  count: number;
+  total: number | null;
+}
+
+/**
+ * Total amount and number of recorded payments.
+ *
+ * Aggregated in SQL rather than by summing `getPayments()` in the UI, so the
+ * total stays correct however large the table grows. `COALESCE` turns the
+ * `SUM` of an empty table (`null`) into `0`.
+ */
+export async function getPaymentSummary(): Promise<PaymentSummary> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<PaymentSummaryRow>(
+    `SELECT COUNT(*) AS count, COALESCE(SUM(amount), 0) AS total
+     FROM payments`
+  );
+  return {
+    count: Number(row?.count ?? 0),
+    // `amount` is REAL, so summing can leave binary float noise behind
+    // (12300.000000000002). Round back to the two decimals money has.
+    total: Math.round(Number(row?.total ?? 0) * 100) / 100,
+  };
+}
+
 export async function getPaymentById(id: number): Promise<Payment | null> {
   if (!isValidId(id)) {
     return null;
