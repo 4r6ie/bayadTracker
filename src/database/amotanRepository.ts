@@ -1,6 +1,6 @@
 import type { Amotan, AmotanInput } from '../types/amotan';
 import { getDatabase } from './database';
-
+import { isValidId } from './ids';
 interface AmotanRow {
     id: number;
     title: string;
@@ -21,11 +21,8 @@ function toAmotan(row: AmotanRow): Amotan {
     }
 }
 
-function isValid(id:number): boolean{
-    return Number.isInteger(id) && id > 0;
-}
 
-export async function getAmotans(): Promise<Amotan[]> {
+export async function getAmotan(): Promise<Amotan[]> {
     const db = await getDatabase();
     const rows = await db.getAllAsync<AmotanRow>(
         `SELECT id, title, amount_cents, due_date, created_at, updated_at
@@ -38,7 +35,7 @@ export async function getAmotans(): Promise<Amotan[]> {
 export async function getAmotanById(
     id:number
 ): Promise<Amotan | null> {
-    if(!isValid(id)){
+    if(!isValidId(id)){
         return null;
     }
 
@@ -67,7 +64,7 @@ export async function createAmotan(input: AmotanInput): Promise<number> {
 }
 
 export async function updateAmotan(id: number, input: AmotanInput): Promise<boolean>{
-    if (!isValid(id)){
+    if (!isValidId(id)){
         return false
     }
     const db = await getDatabase();
@@ -83,7 +80,7 @@ export async function updateAmotan(id: number, input: AmotanInput): Promise<bool
 }
 
 export async function deleteAmotan(id: number): Promise<boolean>{
-    if(!isValid(id)){
+    if(!isValidId(id)){
         return false;
     }
     const db = await getDatabase();

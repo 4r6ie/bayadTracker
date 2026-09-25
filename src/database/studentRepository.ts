@@ -1,5 +1,6 @@
 import type { Student, StudentInput } from '../types/amotan';
 import { getDatabase } from './database';
+import { isValidId } from './ids';
 
 interface StudentRow {
     id: number;
@@ -15,10 +16,6 @@ function toStudent(row: StudentRow): Student {
         createdAt: String(row.created_at),
         updatedAt: String(row.updated_at),
     }
-}
-
-function isValid(id:number): boolean{
-    return Number.isInteger(id) && id > 0;
 }
 
 export class DuplicateStudentError extends Error {
@@ -46,7 +43,7 @@ export async function getStudents(): Promise<Student[]> {
 }
 
 export async function getStudentById(id: number): Promise<Student | null> {
-    if (!isValid(id))  {
+    if (!isValidId(id))  {
         return null;
     }
     const db = await getDatabase();
@@ -82,7 +79,7 @@ export async function updateStudent(
     id: number,
     input: StudentInput
 ): Promise<boolean> {
-    if(!isValid(id)){
+    if(!isValidId(id)){
         return false;
     }
     const db = await getDatabase();
@@ -100,7 +97,7 @@ export async function updateStudent(
 }
 
 export async function deleteStudent(id: number): Promise<boolean> {
-    if(!isValid(id)){
+    if(!isValidId(id)){
         return false;
     }
     const db = await getDatabase();

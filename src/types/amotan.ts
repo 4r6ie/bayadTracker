@@ -30,3 +30,19 @@ export interface AmotanPayment{
 export type AmotanPaymentInput = Pick<AmotanPayment, 'studentId' | 'amotanId' | 'amountCents' | 'paidDate'>;
 
 export type PaymentStatus = 'unpaid' | 'partial' | 'paid';
+
+export interface AmotanRosterEntry {
+    studentId: number;
+    studentName: string;
+    paidCents: number;
+    status: PaymentStatus;
+}
+
+export interface StudentChecklistEntry {
+    amotanId: number;
+    title: string;
+    targetCents: number;
+    dueDate: string | null;
+    paidCents: number;
+    status: PaymentStatus;
+}
