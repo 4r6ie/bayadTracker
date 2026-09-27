@@ -12,4 +12,5 @@ export const routes = {
   /** Dynamic route: pass `params: { id }` when navigating. */
   paymentDetails: '/payment/[id]',
   editPayment: '/payment/edit',
+  addStudent: '/add-student',
 } as const;

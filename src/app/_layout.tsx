@@ -19,7 +19,8 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: '#F4F6F5' },
         }}
       >
-        <Stack.Screen name="index" options={{ title: 'BayadTracker' }} />
+        <Stack.Screen name="index" options={{ title: 'Students' }} />
+        <Stack.Screen name="add-student" options={{ title: 'Add Student'}} />
         <Stack.Screen name="add-payment" options={{ title: 'Add Payment' }} />
         <Stack.Screen
           name="payment/[id]"
