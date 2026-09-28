@@ -12,8 +12,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StudentCard } from '../components/StudentCard';
+import { SyncStatusBar } from '../components/SyncStatusBar';
 import { routes } from '../constants/routes';
 import { deleteStudent, getStudents } from '../database/studentRepository';
+import { syncNow } from '../sync/syncManager';
+import { useReloadOnSync } from '../sync/useReloadOnSync';
 import type { Student } from '../types/amotan';
 import { tapFeedback } from '../utils/feedback';
 
@@ -43,9 +46,13 @@ export default function StudentsScreen(){
       load();
     }, [load])
   );
+  // Show the other phone's changes as soon as a sync brings them in.
+  useReloadOnSync(load);
 
   async function handleRefresh(){
     setRefreshing(true);
+    // Pulling down also syncs, then shows whatever arrived.
+    await syncNow();
     await load();
     setRefreshing(false);
   }
@@ -120,6 +127,8 @@ export default function StudentsScreen(){
         />
       }
       ListHeaderComponent={
+        <>
+        <SyncStatusBar />
         <View style={styles.headerRow}>
           <Text style={styles.count}>
             {students.length} {students.length === 1 ? 'student' : 'students'}
@@ -137,6 +146,7 @@ export default function StudentsScreen(){
             <Text style={styles.amotanLink}>Amotan →</Text>
           </Pressable>
         </View>
+        </>
       }
       renderItem={({ item}) => (
         <StudentCard student={item} onLongPress={() => handleDelete(item)}/>

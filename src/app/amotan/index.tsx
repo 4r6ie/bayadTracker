@@ -12,8 +12,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AmotanCard } from '../../components/AmotanCard';
+import { SyncStatusBar } from '../../components/SyncStatusBar';
 import { routes } from '../../constants/routes';
 import { deleteAmotan, getAmotans } from '../../database/amotanRepository';
+import { syncNow } from '../../sync/syncManager';
+import { useReloadOnSync } from '../../sync/useReloadOnSync';
 import type { Amotan } from '../../types/amotan';
 import { tapFeedback } from '../../utils/feedback';
 
@@ -43,9 +46,13 @@ export default function AmotanListScreen() {
       load();
     }, [load])
   );
+  // Show the other phone's changes as soon as a sync brings them in.
+  useReloadOnSync(load);
 
   async function handleRefresh() {
     setRefreshing(true);
+    // Pulling down also syncs, then shows whatever arrived.
+    await syncNow();
     await load();
     setRefreshing(false);
   }
@@ -122,7 +129,10 @@ export default function AmotanListScreen() {
         }
         // "amotan" has no separate plural form, so one label fits every count.
         ListHeaderComponent={
-          <Text style={styles.count}>{amotanList.length} amotan</Text>
+          <>
+            <SyncStatusBar />
+            <Text style={styles.count}>{amotanList.length} amotan</Text>
+          </>
         }
         renderItem={({ item }) => (
           <AmotanCard amotan={item} onLongPress={() => handleDelete(item)} />
