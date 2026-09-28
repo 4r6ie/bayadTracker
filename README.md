@@ -121,8 +121,14 @@ Without Supabase settings the app runs local-only: no login, no sync.
 Only accounts listed in `members` can read or write anything (row level
 security), even though the publishable key ships inside the app.
 
-For EAS builds, `.env.local` is not uploaded; set the same two variables with
-`npx eas-cli@latest env:create`.
+For EAS builds, `.env.local` is not uploaded. Set the same two variables in
+the EAS environment the build uses (`preview` for the APK profile), as
+plaintext since `EXPO_PUBLIC_` values ship in the app anyway:
+
+```bash
+npx eas-cli@latest env:set --name EXPO_PUBLIC_SUPABASE_URL --value https://<ref>.supabase.co --environment preview --visibility plaintext
+npx eas-cli@latest env:set --name EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY --value sb_publishable_... --environment preview --visibility plaintext
+```
 
 ## Project structure
 
