@@ -29,16 +29,15 @@ function RootNavigator() {
       }}
     >
       <Stack.Protected guard={canUseApp}>
-        <Stack.Screen name="index" options={{ title: 'Students' }} />
+        {/* The tabs draw their own headers. */}
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="student/[id]" options={{ title: 'Student' }} />
+        <Stack.Screen name="amotan/[id]" options={{ title: 'Amotan' }} />
+        <Stack.Screen name="record-payment" options={{ title: 'Payments' }} />
         <Stack.Screen name="add-student" options={{ title: 'Add Student' }} />
-        <Stack.Screen name="amotan/index" options={{ title: 'Amotan' }} />
+        <Stack.Screen name="edit-student" options={{ title: 'Edit Student' }} />
         <Stack.Screen name="add-amotan" options={{ title: 'Add Amotan' }} />
-        <Stack.Screen name="add-payment" options={{ title: 'Add Payment' }} />
-        <Stack.Screen
-          name="payment/[id]"
-          options={{ title: 'Payment Details' }}
-        />
-        <Stack.Screen name="payment/edit" options={{ title: 'Edit Payment' }} />
+        <Stack.Screen name="edit-amotan" options={{ title: 'Edit Amotan' }} />
       </Stack.Protected>
       <Stack.Protected guard={!canUseApp}>
         <Stack.Screen name="login" options={{ headerShown: false }} />
@@ -49,9 +48,9 @@ function RootNavigator() {
 
 export default function RootLayout() {
   return (
-    // `Swipeable` on the payment rows only responds to gestures inside a
-    // GestureHandlerRootView. expo-router does not mount one for the native
-    // stack, so the app provides it here, once, at the root.
+    // Gesture-handler components only respond inside a GestureHandlerRootView,
+    // which expo-router does not mount for the native stack, so the app
+    // provides it here, once, at the root.
     <GestureHandlerRootView style={styles.root}>
       <StatusBar style="dark" />
       <AuthProvider>

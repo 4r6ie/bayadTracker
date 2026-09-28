@@ -49,6 +49,23 @@ export type AmotanPaymentInput = Pick<
  */
 export type PaymentStatus = 'unpaid' | 'partial' | 'paid';
 
+/** A student plus their standing across every live amotan (Students list). */
+export interface StudentSummary extends Student {
+  amotanCount: number;
+  /** Amotan this student has fully paid. */
+  paidCount: number;
+  /** Total still owed across all amotan, in centavos. */
+  owedCents: number;
+}
+
+/** An amotan plus how the whole section is doing on it (Amotan list). */
+export interface AmotanSummary extends Amotan {
+  studentCount: number;
+  /** Students who have fully paid. */
+  paidCount: number;
+  collectedCents: number;
+}
+
 /** One student in an amotan's roster, with how much they have paid. */
 export interface AmotanRosterEntry {
   studentId: string;

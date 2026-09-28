@@ -3,7 +3,9 @@ import type {
   AmotanPayment,
   AmotanPaymentInput,
   AmotanRosterEntry,
+  AmotanSummary,
   StudentChecklistEntry,
+  StudentSummary,
 } from '../types/amotan';
 import { getPaymentStatus } from '../utils/paymentStatus';
 import { getAmotanById } from './amotanRepository';
@@ -212,4 +214,97 @@ export async function getStudentChecklist(
       status: getPaymentStatus(paidCents, targetCents),
     };
   });
+}
+
+/**
+ * How much every live student has paid toward every live amotan: one row
+ * per (student, amotan) pair, including pairs with no payment (paid = 0).
+ * Shared by the two list summaries below.
+ */
+const PAIR_TOTALS = `
+  SELECT s.id AS student_id,
+         a.id AS amotan_id,
+         a.amount_cents AS target_cents,
+         COALESCE(SUM(p.amount_cents), 0) AS paid_cents
+  FROM students s
+  CROSS JOIN amotan a
+  LEFT JOIN amotan_payments p
+    ON p.student_id = s.id
+   AND p.amotan_id = a.id
+   AND p.deleted_at IS NULL
+  WHERE s.deleted_at IS NULL AND a.deleted_at IS NULL
+  GROUP BY s.id, a.id`;
+
+/** Every live student with how many amotan they finished and what they owe. */
+export async function getStudentSummaries(): Promise<StudentSummary[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{
+    id: string;
+    name: string;
+    created_at: string;
+    updated_at: string;
+    amotan_count: number;
+    paid_count: number;
+    owed_cents: number;
+  }>(
+    `WITH totals AS (${PAIR_TOTALS})
+     SELECT s.id, s.name, s.created_at, s.updated_at,
+            COUNT(t.amotan_id) AS amotan_count,
+            COALESCE(SUM(CASE WHEN t.paid_cents >= t.target_cents THEN 1 ELSE 0 END), 0)
+              AS paid_count,
+            COALESCE(SUM(MAX(t.target_cents - t.paid_cents, 0)), 0) AS owed_cents
+     FROM students s
+     LEFT JOIN totals t ON t.student_id = s.id
+     WHERE s.deleted_at IS NULL
+     GROUP BY s.id
+     ORDER BY s.name COLLATE NOCASE ASC`
+  );
+  return rows.map((row) => ({
+    id: String(row.id),
+    name: String(row.name),
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+    amotanCount: Number(row.amotan_count),
+    paidCount: Number(row.paid_count),
+    owedCents: Number(row.owed_cents),
+  }));
+}
+
+/** Every live amotan with how many students finished and how much came in. */
+export async function getAmotanSummaries(): Promise<AmotanSummary[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{
+    id: string;
+    title: string;
+    amount_cents: number;
+    due_date: string | null;
+    created_at: string;
+    updated_at: string;
+    student_count: number;
+    paid_count: number;
+    collected_cents: number;
+  }>(
+    `WITH totals AS (${PAIR_TOTALS})
+     SELECT a.id, a.title, a.amount_cents, a.due_date, a.created_at, a.updated_at,
+            COUNT(t.student_id) AS student_count,
+            COALESCE(SUM(CASE WHEN t.paid_cents >= t.target_cents THEN 1 ELSE 0 END), 0)
+              AS paid_count,
+            COALESCE(SUM(t.paid_cents), 0) AS collected_cents
+     FROM amotan a
+     LEFT JOIN totals t ON t.amotan_id = a.id
+     WHERE a.deleted_at IS NULL
+     GROUP BY a.id
+     ORDER BY a.due_date IS NULL, a.due_date ASC, a.title COLLATE NOCASE ASC`
+  );
+  return rows.map((row) => ({
+    id: String(row.id),
+    title: String(row.title),
+    amountCents: Number(row.amount_cents),
+    dueDate: row.due_date === null ? null : String(row.due_date),
+    createdAt: String(row.created_at),
+    updatedAt: String(row.updated_at),
+    studentCount: Number(row.student_count),
+    paidCount: Number(row.paid_count),
+    collectedCents: Number(row.collected_cents),
+  }));
 }

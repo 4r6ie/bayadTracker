@@ -45,6 +45,11 @@ export function validateDueDate(text: string): string | undefined {
   return undefined;
 }
 
+/** `15050` -> `150.50`, the text an edit form starts with. */
+export function centsToAmountText(cents: number): string {
+  return (cents / 100).toFixed(2);
+}
+
 /** `15050` -> `₱150.50`. */
 export function formatCents(cents: number): string {
   const safeCents = Number.isFinite(cents) ? cents : 0;

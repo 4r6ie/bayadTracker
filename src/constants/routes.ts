@@ -6,13 +6,23 @@
  * because Expo Router's typed routes check them.
  */
 export const routes = {
-  /** Home screen: the payments list. */
-  payments: '/',
-  addPayment: '/add-payment',
-  /** Dynamic route: pass `params: { id }` when navigating. */
-  paymentDetails: '/payment/[id]',
-  editPayment: '/payment/edit',
-  addStudent: '/add-student',
+  /** Tabs. */
+  students: '/',
   amotanList: '/amotan',
+  account: '/account',
+
+  addStudent: '/add-student',
+  /** Pass `params: { id }`. */
+  editStudent: '/edit-student',
+  /** Dynamic route: pass `params: { id }`. The student's checklist. */
+  studentDetails: '/student/[id]',
+
   addAmotan: '/add-amotan',
+  /** Pass `params: { id }`. */
+  editAmotan: '/edit-amotan',
+  /** Dynamic route: pass `params: { id }`. Who paid and who has not. */
+  amotanDetails: '/amotan/[id]',
+
+  /** Pass `params: { studentId, amotanId }`. */
+  recordPayment: '/record-payment',
 } as const;

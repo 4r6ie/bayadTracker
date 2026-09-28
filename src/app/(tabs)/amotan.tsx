@@ -10,25 +10,25 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { AmotanCard } from '../../components/AmotanCard';
 import { SyncStatusBar } from '../../components/SyncStatusBar';
 import { routes } from '../../constants/routes';
-import { deleteAmotan, getAmotans } from '../../database/amotanRepository';
+import { getAmotanSummaries } from '../../database/amotanPaymentRepository';
+import { deleteAmotan } from '../../database/amotanRepository';
 import { syncNow } from '../../sync/syncManager';
 import { useReloadOnSync } from '../../sync/useReloadOnSync';
-import type { Amotan } from '../../types/amotan';
+import type { AmotanSummary } from '../../types/amotan';
 import { tapFeedback } from '../../utils/feedback';
 
 export default function AmotanListScreen() {
-  const [amotanList, setAmotanList] = useState<Amotan[]>([]);
+  const [amotanList, setAmotanList] = useState<AmotanSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      setAmotanList(await getAmotans());
+      setAmotanList(await getAmotanSummaries());
       setFailed(false);
     } catch (error) {
       if (__DEV__) {
@@ -40,28 +40,24 @@ export default function AmotanListScreen() {
     }
   }, []);
 
-  // Reload every time the screen regains focus, e.g. after adding one.
   useFocusEffect(
     useCallback(() => {
       load();
     }, [load])
   );
-  // Show the other phone's changes as soon as a sync brings them in.
   useReloadOnSync(load);
 
   async function handleRefresh() {
     setRefreshing(true);
-    // Pulling down also syncs, then shows whatever arrived.
     await syncNow();
     await load();
     setRefreshing(false);
   }
 
-  function handleDelete(amotan: Amotan) {
+  function handleDelete(amotan: AmotanSummary) {
     Alert.alert(
       `Delete ${amotan.title}?`,
-      // ON DELETE CASCADE removes the installments too, so say so.
-      'This also deletes every payment recorded for this amotan. This cannot be undone.',
+      'This also deletes every payment recorded for this amotan, on both phones. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -85,39 +81,35 @@ export default function AmotanListScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.centerBox}>
-          <ActivityIndicator color="#127A52" />
-        </View>
-      </SafeAreaView>
+      <View style={styles.centerBox}>
+        <ActivityIndicator color="#127A52" />
+      </View>
     );
   }
 
   if (failed) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.centerBox}>
-          <Text style={styles.errorTitle}>Unable to load amotan.</Text>
-          <Text style={styles.message}>Please try again.</Text>
-          <Pressable
-            style={styles.retryButton}
-            onPress={() => {
-              setLoading(true);
-              load();
-            }}
-          >
-            <Text style={styles.retryLabel}>Try Again</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
+      <View style={styles.centerBox}>
+        <Text style={styles.errorTitle}>Unable to load amotan.</Text>
+        <Text style={styles.message}>Please try again.</Text>
+        <Pressable
+          style={styles.retryButton}
+          onPress={() => {
+            setLoading(true);
+            load();
+          }}
+        >
+          <Text style={styles.retryLabel}>Try Again</Text>
+        </Pressable>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.screen}>
       <FlatList
         data={amotanList}
-        keyExtractor={(item) => String(item.id)}
+        keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl
@@ -127,15 +119,21 @@ export default function AmotanListScreen() {
             colors={['#127A52']}
           />
         }
-        // "amotan" has no separate plural form, so one label fits every count.
         ListHeaderComponent={
           <>
             <SyncStatusBar />
+            {/* "amotan" has no separate plural form, so one label fits every count. */}
             <Text style={styles.count}>{amotanList.length} amotan</Text>
           </>
         }
         renderItem={({ item }) => (
-          <AmotanCard amotan={item} onLongPress={() => handleDelete(item)} />
+          <AmotanCard
+            amotan={item}
+            onPress={() =>
+              router.push({ pathname: routes.amotanDetails, params: { id: item.id } })
+            }
+            onLongPress={() => handleDelete(item)}
+          />
         )}
         ListEmptyComponent={
           <View style={styles.empty}>
@@ -156,12 +154,12 @@ export default function AmotanListScreen() {
       >
         <Text style={styles.fabLabel}>+</Text>
       </Pressable>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  screen: {
     flex: 1,
     backgroundColor: '#F4F6F5',
   },
@@ -170,6 +168,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
+    backgroundColor: '#F4F6F5',
   },
   errorTitle: {
     fontSize: 17,
