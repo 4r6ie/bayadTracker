@@ -120,17 +120,31 @@ export default function StudentsScreen(){
         />
       }
       ListHeaderComponent={
-        <Text style={styles.count}>
-          {students.length} {students.length === 1 ? 'student' : 'student'}
-        </Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.count}>
+            {students.length} {students.length === 1 ? 'student' : 'students'}
+          </Text>
+          {/* Temporary way in until the Students / Amotan tabs land (Task 8). */}
+          <Pressable
+            onPress={() => {
+              tapFeedback();
+              router.push(routes.amotanList);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="View amotan"
+            hitSlop={8}
+          >
+            <Text style={styles.amotanLink}>Amotan →</Text>
+          </Pressable>
+        </View>
       }
       renderItem={({ item}) => (
         <StudentCard student={item} onLongPress={() => handleDelete(item)}/>
       )}
       ListEmptyComponent={
         <View style= {styles.empty}>
-          <Text style={styles.emptyTitle}>No student yet</Text>
-          <Text style={styles.message}>Tap + tp add your first student.</Text>
+          <Text style={styles.emptyTitle}>No students yet.</Text>
+          <Text style={styles.message}>Tap + to add your first student.</Text>
         </View>
       }/>
 
@@ -193,13 +207,23 @@ const styles = StyleSheet.create({
     paddingBottom: 96,
     flexGrow: 1,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
   count: {
     fontSize: 13,
     fontWeight: '700',
     color: '#5B6660',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 12,
+  },
+  amotanLink: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#127A52',
   },
   empty: {
     alignItems: 'center',

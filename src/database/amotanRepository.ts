@@ -22,7 +22,7 @@ function toAmotan(row: AmotanRow): Amotan {
 }
 
 
-export async function getAmotan(): Promise<Amotan[]> {
+export async function getAmotans(): Promise<Amotan[]> {
     const db = await getDatabase();
     const rows = await db.getAllAsync<AmotanRow>(
         `SELECT id, title, amount_cents, due_date, created_at, updated_at

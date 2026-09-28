@@ -13,4 +13,6 @@ export const routes = {
   paymentDetails: '/payment/[id]',
   editPayment: '/payment/edit',
   addStudent: '/add-student',
+  amotanList: '/amotan',
+  addAmotan: '/add-amotan',
 } as const;

@@ -20,7 +20,9 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="index" options={{ title: 'Students' }} />
-        <Stack.Screen name="add-student" options={{ title: 'Add Student'}} />
+        <Stack.Screen name="add-student" options={{ title: 'Add Student' }} />
+        <Stack.Screen name="amotan/index" options={{ title: 'Amotan' }} />
+        <Stack.Screen name="add-amotan" options={{ title: 'Add Amotan' }} />
         <Stack.Screen name="add-payment" options={{ title: 'Add Payment' }} />
         <Stack.Screen
           name="payment/[id]"
