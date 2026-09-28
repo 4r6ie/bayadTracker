@@ -1,26 +1,24 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Alert, FlatList, RefreshControl, View } from 'react-native';
 import { AmotanCard } from '../../components/AmotanCard';
 import { SyncStatusBar } from '../../components/SyncStatusBar';
+import { Button } from '../../components/ui/Button';
+import { Fab } from '../../components/ui/Controls';
+import { ScreenHeader } from '../../components/ui/Headers';
+import { EmptyState, ErrorState, LoadingState } from '../../components/ui/States';
 import { routes } from '../../constants/routes';
 import { getAmotanSummaries } from '../../database/amotanPaymentRepository';
 import { deleteAmotan } from '../../database/amotanRepository';
 import { syncNow } from '../../sync/syncManager';
 import { useReloadOnSync } from '../../sync/useReloadOnSync';
+import { makeStyles, useTheme } from '../../theme/ThemeProvider';
+import { space } from '../../theme/tokens';
 import type { AmotanSummary } from '../../types/amotan';
-import { tapFeedback } from '../../utils/feedback';
 
 export default function AmotanListScreen() {
+  const styles = useStyles();
+  const { theme } = useTheme();
   const [amotanList, setAmotanList] = useState<AmotanSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -71,7 +69,7 @@ export default function AmotanListScreen() {
               if (__DEV__) {
                 console.error('Failed to delete amotan', error);
               }
-              Alert.alert('Unable to Delete', 'Could not delete. Please try again.');
+              Alert.alert('Unable to delete', 'Try again.');
             }
           },
         },
@@ -80,30 +78,24 @@ export default function AmotanListScreen() {
   }
 
   if (loading) {
+    return <LoadingState />;
+  }
+  if (failed) {
     return (
-      <View style={styles.centerBox}>
-        <ActivityIndicator color="#127A52" />
-      </View>
+      <ErrorState
+        message="Couldn't load amotan."
+        onRetry={() => {
+          setLoading(true);
+          load();
+        }}
+      />
     );
   }
 
-  if (failed) {
-    return (
-      <View style={styles.centerBox}>
-        <Text style={styles.errorTitle}>Unable to load amotan.</Text>
-        <Text style={styles.message}>Please try again.</Text>
-        <Pressable
-          style={styles.retryButton}
-          onPress={() => {
-            setLoading(true);
-            load();
-          }}
-        >
-          <Text style={styles.retryLabel}>Try Again</Text>
-        </Pressable>
-      </View>
-    );
-  }
+  const openAdd = () => router.push(routes.addAmotan);
+  const complete = amotanList.filter(
+    (amotan) => amotan.studentCount > 0 && amotan.paidCount === amotan.studentCount
+  ).length;
 
   return (
     <View style={styles.screen}>
@@ -115,16 +107,21 @@ export default function AmotanListScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor="#127A52"
-            colors={['#127A52']}
+            tintColor={theme.colors.accent}
+            colors={[theme.colors.accent]}
           />
         }
         ListHeaderComponent={
-          <>
-            <SyncStatusBar />
-            {/* "amotan" has no separate plural form, so one label fits every count. */}
-            <Text style={styles.count}>{amotanList.length} amotan</Text>
-          </>
+          <ScreenHeader
+            title="Amotan"
+            // "amotan" has no separate plural form, so one label fits every count.
+            subtitle={
+              amotanList.length > 0
+                ? `${amotanList.length} amotan · ${complete} complete`
+                : undefined
+            }
+            right={<SyncStatusBar />}
+          />
         }
         renderItem={({ item }) => (
           <AmotanCard
@@ -136,110 +133,28 @@ export default function AmotanListScreen() {
           />
         )}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>No amotan yet.</Text>
-            <Text style={styles.message}>Tap + to add your first amotan.</Text>
-          </View>
+          <EmptyState
+            icon="wallet-outline"
+            title="Add your first amotan"
+            message="A class T-shirt, a party, a field trip: set the amount each student pays."
+            action={<Button label="Add amotan" icon="add" onPress={openAdd} />}
+          />
         }
       />
-      <Pressable
-        style={styles.fab}
-        onPress={() => {
-          tapFeedback();
-          router.push(routes.addAmotan);
-        }}
-        accessibilityRole="button"
-        accessibilityLabel="Add amotan"
-        accessibilityHint="Opens the add amotan screen"
-      >
-        <Text style={styles.fabLabel}>+</Text>
-      </Pressable>
+      {amotanList.length > 0 ? <Fab onPress={openAdd} accessibilityLabel="Add amotan" /> : null}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((t) => ({
   screen: {
     flex: 1,
-    backgroundColor: '#F4F6F5',
-  },
-  centerBox: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    backgroundColor: '#F4F6F5',
-  },
-  errorTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#C63B3B',
-    marginBottom: 4,
-  },
-  message: {
-    fontSize: 14,
-    color: '#5B6660',
-    textAlign: 'center',
-  },
-  retryButton: {
-    marginTop: 16,
-    minHeight: 50,
-    borderRadius: 12,
-    backgroundColor: '#127A52',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  retryLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    backgroundColor: t.colors.background,
   },
   listContent: {
-    padding: 16,
-    // Room for the floating button, so it never covers the last row.
-    paddingBottom: 96,
+    paddingHorizontal: space.lg,
+    // Room for the floating button, so it never covers the last card.
+    paddingBottom: 110,
     flexGrow: 1,
   },
-  count: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#5B6660',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 12,
-  },
-  empty: {
-    alignItems: 'center',
-    paddingVertical: 32,
-    paddingHorizontal: 24,
-  },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#17211C',
-    marginBottom: 8,
-  },
-  fab: {
-    position: 'absolute',
-    right: 16,
-    bottom: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#127A52',
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
-    shadowColor: '#000000',
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-  },
-  fabLabel: {
-    fontSize: 30,
-    lineHeight: 34,
-    fontWeight: '400',
-    color: '#FFFFFF',
-  },
-});
+}));

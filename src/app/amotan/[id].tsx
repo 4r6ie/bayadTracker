@@ -1,21 +1,19 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Pressable,
-  Share,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Alert, ScrollView, Share, Text, View } from 'react-native';
 import { ChecklistRow } from '../../components/ChecklistRow';
+import { Card } from '../../components/ui/Card';
+import { ChipGroup } from '../../components/ui/Controls';
+import { IconButton } from '../../components/ui/IconButton';
+import { ProgressBar } from '../../components/ui/ProgressBar';
+import { EmptyState, ErrorState, LoadingState } from '../../components/ui/States';
 import { routes } from '../../constants/routes';
 import { getAmotanRoster } from '../../database/amotanPaymentRepository';
 import { getAmotanById } from '../../database/amotanRepository';
 import { useReloadOnSync } from '../../sync/useReloadOnSync';
+import { makeStyles, useTheme } from '../../theme/ThemeProvider';
+import { font, space } from '../../theme/tokens';
 import type { Amotan, AmotanRosterEntry } from '../../types/amotan';
 import { formatCents } from '../../utils/amotanValidation';
 import { tapFeedback } from '../../utils/feedback';
@@ -26,10 +24,12 @@ import { formatDisplayDate } from '../../utils/validation';
 type Filter = 'all' | 'notYet' | 'paid';
 
 /**
- * Task 7: one amotan, with who has paid and who has not. "Not yet" covers
- * both unpaid and partly paid students: they all still owe something.
+ * One amotan, with who has paid and who has not. "Not yet" covers both
+ * unpaid and partly paid students: they all still owe something.
  */
 export default function AmotanDetailsScreen() {
+  const styles = useStyles();
+  const { theme } = useTheme();
   const id = firstParam(useLocalSearchParams<{ id: string }>().id);
   const [amotan, setAmotan] = useState<Amotan | null>(null);
   const [roster, setRoster] = useState<AmotanRosterEntry[]>([]);
@@ -68,24 +68,14 @@ export default function AmotanDetailsScreen() {
   const visible = filter === 'notYet' ? notYet : filter === 'paid' ? paid : roster;
 
   if (loading) {
-    return (
-      <View style={styles.centerBox}>
-        <ActivityIndicator color="#127A52" />
-      </View>
-    );
+    return <LoadingState />;
   }
-
   if (failed || !amotan) {
     return (
-      <View style={styles.centerBox}>
-        <Stack.Screen options={{ title: 'Amotan' }} />
-        <Text style={styles.emptyTitle}>
-          {failed ? 'Unable to load this amotan.' : 'This amotan was deleted.'}
-        </Text>
-        <Pressable style={styles.button} onPress={() => router.back()}>
-          <Text style={styles.buttonLabel}>Go Back</Text>
-        </Pressable>
-      </View>
+      <ErrorState
+        message={failed ? "Couldn't load this amotan." : 'This amotan was deleted.'}
+        onRetry={failed ? load : () => router.back()}
+      />
     );
   }
 
@@ -117,253 +107,204 @@ export default function AmotanDetailsScreen() {
       if (__DEV__) {
         console.error('Share failed', error);
       }
-      Alert.alert('Unable to Share', 'Please try again.');
+      Alert.alert('Unable to share', 'Try again.');
     }
   }
 
-  const FILTERS: { value: Filter; label: string }[] = [
-    { value: 'all', label: `All (${roster.length})` },
-    { value: 'notYet', label: `Not yet (${notYet.length})` },
-    { value: 'paid', label: `Paid (${paid.length})` },
-  ];
-
   return (
-    <SafeAreaView style={styles.screen} edges={['bottom']}>
+    <View style={styles.screen}>
       <Stack.Screen
         options={{
-          title: amotan.title,
+          title: '',
           headerRight: () => (
             <View style={styles.headerActions}>
-              <Pressable
+              <IconButton
+                icon="share-outline"
+                accessibilityLabel="Share who hasn't paid"
                 onPress={shareNotYet}
-                accessibilityRole="button"
-                accessibilityLabel="Share who has not paid"
-                hitSlop={8}
-              >
-                <Text style={styles.headerAction}>Share</Text>
-              </Pressable>
-              <Pressable
+              />
+              <IconButton
+                icon="create-outline"
+                accessibilityLabel="Edit amotan"
                 onPress={() =>
                   router.push({ pathname: routes.editAmotan, params: { id: amotan.id } })
                 }
-                accessibilityRole="button"
-                accessibilityLabel="Edit amotan"
-                hitSlop={8}
-              >
-                <Text style={styles.headerAction}>Edit</Text>
-              </Pressable>
+              />
             </View>
           ),
         }}
       />
-      <FlatList
-        data={visible}
-        keyExtractor={(entry) => entry.studentId}
-        contentContainerStyle={styles.listContent}
-        ListHeaderComponent={
-          <>
-            <View style={styles.summary}>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryLabel}>Each</Text>
-                <Text style={styles.summaryValue}>{formatCents(amotan.amountCents)}</Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryLabel}>Collected</Text>
-                <Text style={styles.summaryValue}>{formatCents(collectedCents)}</Text>
-                <Text style={styles.summaryDetail}>of {formatCents(expectedCents)}</Text>
-              </View>
-              <View style={styles.summaryItem}>
-                <Text style={styles.summaryLabel}>Due</Text>
-                <Text style={styles.summaryValueSmall}>
-                  {amotan.dueDate ? formatDisplayDate(amotan.dueDate) : 'No deadline'}
-                </Text>
-              </View>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text style={styles.title} accessibilityRole="header">
+          {amotan.title}
+        </Text>
+        <View style={styles.metaRow}>
+          <Text style={styles.each}>{formatCents(amotan.amountCents)} each</Text>
+          <View style={styles.due}>
+            <Ionicons name="calendar-outline" size={14} color={theme.colors.textSecondary} />
+            <Text style={styles.dueText}>
+              {amotan.dueDate ? `Due ${formatDisplayDate(amotan.dueDate)}` : 'No deadline'}
+            </Text>
+          </View>
+        </View>
+
+        <Card style={styles.summary}>
+          <View style={styles.summaryRow}>
+            <View>
+              <Text style={styles.summaryLabel}>Collected</Text>
+              <Text style={styles.summaryValue}>{formatCents(collectedCents)}</Text>
             </View>
-            {roster.length > 0 ? (
-              <View style={styles.chips}>
-                {FILTERS.map((option) => {
-                  const active = option.value === filter;
-                  return (
-                    <Pressable
-                      key={option.value}
-                      onPress={() => {
-                        tapFeedback();
-                        setFilter(option.value);
-                      }}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
-                      style={[styles.chip, active && styles.chipActive]}
-                    >
-                      <Text style={[styles.chipLabel, active && styles.chipLabelActive]}>
-                        {option.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            ) : null}
+            <View style={styles.summaryRight}>
+              <Text style={styles.summaryLabel}>Expected</Text>
+              <Text style={styles.summaryValueMuted}>{formatCents(expectedCents)}</Text>
+            </View>
+          </View>
+          <View style={styles.summaryProgress}>
+            <ProgressBar
+              fraction={roster.length > 0 ? paid.length / roster.length : 0}
+              height={8}
+            />
+          </View>
+          <Text style={styles.summaryDetail}>
+            {paid.length} of {roster.length} students paid
+          </Text>
+        </Card>
+
+        {roster.length > 0 ? (
+          <>
+            <ChipGroup
+              options={[
+                { value: 'all', label: `All ${roster.length}` },
+                { value: 'notYet', label: `Not yet ${notYet.length}` },
+                { value: 'paid', label: `Paid ${paid.length}` },
+              ]}
+              value={filter}
+              onChange={setFilter}
+            />
+            {visible.length > 0 ? (
+              <Card padded={false}>
+                {visible.map((entry, index) => (
+                  <ChecklistRow
+                    key={entry.studentId}
+                    divider={index > 0}
+                    title={entry.studentName}
+                    avatarName={entry.studentName}
+                    paidCents={entry.paidCents}
+                    targetCents={amotan.amountCents}
+                    status={entry.status}
+                    onPress={() =>
+                      router.push({
+                        pathname: routes.recordPayment,
+                        params: { studentId: entry.studentId, amotanId: amotan.id },
+                      })
+                    }
+                    onCheck={() =>
+                      confirmPayRemaining({
+                        studentId: entry.studentId,
+                        studentName: entry.studentName,
+                        amotanId: amotan.id,
+                        amotanTitle: amotan.title,
+                        remainingCents: amotan.amountCents - entry.paidCents,
+                        onDone: load,
+                      })
+                    }
+                  />
+                ))}
+              </Card>
+            ) : (
+              <EmptyState
+                icon={filter === 'notYet' ? 'happy-outline' : 'time-outline'}
+                title={filter === 'notYet' ? 'Everyone has paid' : 'Nobody has fully paid yet'}
+              />
+            )}
           </>
-        }
-        renderItem={({ item }) => (
-          <ChecklistRow
-            title={item.studentName}
-            paidCents={item.paidCents}
-            targetCents={amotan.amountCents}
-            status={item.status}
-            onPress={() =>
-              router.push({
-                pathname: routes.recordPayment,
-                params: { studentId: item.studentId, amotanId: amotan.id },
-              })
-            }
-            onCheck={() =>
-              confirmPayRemaining({
-                studentId: item.studentId,
-                studentName: item.studentName,
-                amotanId: amotan.id,
-                amotanTitle: amotan.title,
-                remainingCents: amotan.amountCents - item.paidCents,
-                onDone: load,
-              })
-            }
+        ) : (
+          <EmptyState
+            icon="people-outline"
+            title="No students yet"
+            message="Add your class in the Students tab."
           />
         )}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>
-              {roster.length === 0
-                ? 'No students yet.'
-                : filter === 'notYet'
-                  ? 'Everyone has paid.'
-                  : 'Nobody has fully paid yet.'}
-            </Text>
-            {roster.length === 0 ? (
-              <Text style={styles.message}>Add students in the Students tab.</Text>
-            ) : null}
-          </View>
-        }
-      />
-    </SafeAreaView>
+      </ScrollView>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((t) => ({
   screen: {
     flex: 1,
-    backgroundColor: '#F4F6F5',
+    backgroundColor: t.colors.background,
   },
-  centerBox: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    backgroundColor: '#F4F6F5',
+  content: {
+    paddingHorizontal: space.lg,
+    paddingBottom: space.xxl,
   },
   headerActions: {
     flexDirection: 'row',
-    gap: 20,
+    gap: space.xs,
   },
-  headerAction: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#127A52',
+  title: {
+    fontSize: font.largeTitle - 2,
+    fontWeight: '800',
+    color: t.colors.text,
+    letterSpacing: -0.5,
   },
-  listContent: {
-    padding: 16,
-    flexGrow: 1,
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    marginTop: space.xs,
+    marginBottom: space.lg,
+  },
+  each: {
+    fontSize: font.body,
+    fontWeight: '700',
+    color: t.colors.accentText,
+  },
+  due: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+  },
+  dueText: {
+    fontSize: font.body,
+    color: t.colors.textSecondary,
   },
   summary: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E1E7E3',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+    marginBottom: space.lg,
   },
-  summaryItem: {
-    flex: 1,
-    alignItems: 'center',
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  summaryRight: {
+    alignItems: 'flex-end',
   },
   summaryLabel: {
-    fontSize: 12,
+    fontSize: font.caption,
     fontWeight: '700',
-    color: '#5B6660',
+    color: t.colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   summaryValue: {
-    fontSize: 16,
+    fontSize: font.title,
     fontWeight: '800',
-    color: '#17211C',
-    marginTop: 4,
+    color: t.colors.text,
+    marginTop: 2,
   },
-  summaryValueSmall: {
-    fontSize: 13,
+  summaryValueMuted: {
+    fontSize: font.title,
     fontWeight: '700',
-    color: '#17211C',
-    marginTop: 6,
-    textAlign: 'center',
+    color: t.colors.textSecondary,
+    marginTop: 2,
+  },
+  summaryProgress: {
+    marginTop: space.md,
   },
   summaryDetail: {
-    fontSize: 12,
-    color: '#5B6660',
+    fontSize: font.footnote,
+    color: t.colors.textSecondary,
+    marginTop: space.sm,
   },
-  chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
-  },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E1E7E3',
-  },
-  chipActive: {
-    backgroundColor: '#127A52',
-    borderColor: '#127A52',
-  },
-  chipLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#5B6660',
-  },
-  chipLabelActive: {
-    color: '#FFFFFF',
-  },
-  empty: {
-    alignItems: 'center',
-    paddingVertical: 32,
-    paddingHorizontal: 24,
-  },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#17211C',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  message: {
-    fontSize: 14,
-    color: '#5B6660',
-    textAlign: 'center',
-  },
-  button: {
-    marginTop: 16,
-    minHeight: 48,
-    borderRadius: 12,
-    backgroundColor: '#127A52',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  buttonLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-});
+}));

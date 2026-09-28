@@ -1,6 +1,8 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert } from 'react-native';
+import { IconButton } from '../components/ui/IconButton';
+import { ErrorState, LoadingState } from '../components/ui/States';
 import { AmotanForm } from '../components/AmotanForm';
 import {
   deleteAmotan,
@@ -48,7 +50,7 @@ export default function EditAmotanScreen() {
       if (__DEV__) {
         console.error('Failed to update amotan', error);
       }
-      Alert.alert('Unable to Save', 'Could not save the amotan. Please try again.');
+      Alert.alert('Unable to save', 'Could not save the amotan. Please try again.');
     }
   }
 
@@ -72,7 +74,7 @@ export default function EditAmotanScreen() {
               if (__DEV__) {
                 console.error('Failed to delete amotan', error);
               }
-              Alert.alert('Unable to Delete', 'Could not delete. Please try again.');
+              Alert.alert('Unable to delete', 'Could not delete. Please try again.');
             }
           },
         },
@@ -81,19 +83,11 @@ export default function EditAmotanScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={styles.centerBox}>
-        <ActivityIndicator color="#127A52" />
-      </View>
-    );
+    return <LoadingState />;
   }
 
   if (!amotan) {
-    return (
-      <View style={styles.centerBox}>
-        <Text style={styles.message}>This amotan was deleted.</Text>
-      </View>
-    );
+    return <ErrorState message="This amotan was deleted." onRetry={() => router.back()} />;
   }
 
   return (
@@ -101,14 +95,12 @@ export default function EditAmotanScreen() {
       <Stack.Screen
         options={{
           headerRight: () => (
-            <Pressable
-              onPress={handleDelete}
-              accessibilityRole="button"
+            <IconButton
+              icon="trash-outline"
+              tone="danger"
               accessibilityLabel="Delete amotan"
-              hitSlop={8}
-            >
-              <Text style={styles.deleteAction}>Delete</Text>
-            </Pressable>
+              onPress={handleDelete}
+            />
           ),
         }}
       />
@@ -118,29 +110,11 @@ export default function EditAmotanScreen() {
           amount: centsToAmountText(amotan.amountCents),
           dueDate: amotan.dueDate ?? '',
         }}
-        submitLabel="Save Changes"
-        busyLabel="Saving..."
+        submitLabel="Save changes"
+        busyLabel="Saving…"
         onSubmit={handleSubmit}
       />
     </>
   );
 }
 
-const styles = StyleSheet.create({
-  centerBox: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    backgroundColor: '#F4F6F5',
-  },
-  message: {
-    fontSize: 15,
-    color: '#5B6660',
-  },
-  deleteAction: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#C63B3B',
-  },
-});

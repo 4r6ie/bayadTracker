@@ -14,15 +14,15 @@ export default function AddAmotanScreen() {
       if (__DEV__) {
         console.error('Failed to save amotan', error);
       }
-      Alert.alert('Unable to Save', 'Could not save the amotan. Please try again.');
+      Alert.alert('Unable to save', 'Could not save the amotan. Please try again.');
     }
   }
 
   return (
     <AmotanForm
       initialValues={{ title: '', amount: '', dueDate: '' }}
-      submitLabel="Save Amotan"
-      busyLabel="Saving..."
+      submitLabel="Save amotan"
+      busyLabel="Saving…"
       onSubmit={handleSubmit}
     />
   );

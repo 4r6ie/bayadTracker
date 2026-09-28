@@ -1,27 +1,29 @@
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScrollView, Text, View } from 'react-native';
 import { ChecklistRow } from '../../components/ChecklistRow';
+import { Avatar } from '../../components/ui/Avatar';
+import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
+import { SectionHeader } from '../../components/ui/Headers';
+import { IconButton } from '../../components/ui/IconButton';
+import { Pill } from '../../components/ui/Pill';
+import { EmptyState, ErrorState, LoadingState } from '../../components/ui/States';
 import { routes } from '../../constants/routes';
 import { getStudentChecklist } from '../../database/amotanPaymentRepository';
 import { getStudentById } from '../../database/studentRepository';
 import { useReloadOnSync } from '../../sync/useReloadOnSync';
+import { makeStyles } from '../../theme/ThemeProvider';
+import { font, space } from '../../theme/tokens';
 import type { Student, StudentChecklistEntry } from '../../types/amotan';
 import { formatCents } from '../../utils/amotanValidation';
 import { firstParam } from '../../utils/params';
 import { confirmPayRemaining } from '../../utils/payRemaining';
 import { formatDisplayDate } from '../../utils/validation';
 
-/** Task 6: one student and the checklist of every amotan they owe. */
+/** A student and the checklist of every amotan they owe. */
 export default function StudentDetailsScreen() {
+  const styles = useStyles();
   const id = firstParam(useLocalSearchParams<{ id: string }>().id);
   const [student, setStudent] = useState<Student | null>(null);
   const [checklist, setChecklist] = useState<StudentChecklistEntry[]>([]);
@@ -55,24 +57,14 @@ export default function StudentDetailsScreen() {
   useReloadOnSync(load);
 
   if (loading) {
-    return (
-      <View style={styles.centerBox}>
-        <ActivityIndicator color="#127A52" />
-      </View>
-    );
+    return <LoadingState />;
   }
-
   if (failed || !student) {
     return (
-      <View style={styles.centerBox}>
-        <Stack.Screen options={{ title: 'Student' }} />
-        <Text style={styles.emptyTitle}>
-          {failed ? 'Unable to load this student.' : 'This student was deleted.'}
-        </Text>
-        <Pressable style={styles.button} onPress={() => router.back()}>
-          <Text style={styles.buttonLabel}>Go Back</Text>
-        </Pressable>
-      </View>
+      <ErrorState
+        message={failed ? "Couldn't load this student." : 'This student was deleted.'}
+        onRetry={failed ? load : () => router.back()}
+      />
     );
   }
 
@@ -81,160 +73,143 @@ export default function StudentDetailsScreen() {
     0
   );
   const paidCount = checklist.filter((entry) => entry.status === 'paid').length;
+  // "Record payment" opens the first amotan still owed, soonest deadline first.
+  const nextOwed = checklist.find((entry) => entry.status !== 'paid');
 
   return (
-    <SafeAreaView style={styles.screen} edges={['bottom']}>
+    <View style={styles.screen}>
       <Stack.Screen
         options={{
-          title: student.name,
+          title: '',
           headerRight: () => (
-            <Pressable
+            <IconButton
+              icon="create-outline"
+              accessibilityLabel="Edit student"
               onPress={() =>
                 router.push({ pathname: routes.editStudent, params: { id: student.id } })
               }
-              accessibilityRole="button"
-              accessibilityLabel="Edit student"
-              hitSlop={8}
-            >
-              <Text style={styles.headerAction}>Edit</Text>
-            </Pressable>
+            />
           ),
         }}
       />
-      <FlatList
-        data={checklist}
-        keyExtractor={(entry) => entry.amotanId}
-        contentContainerStyle={styles.listContent}
-        ListHeaderComponent={
-          checklist.length > 0 ? (
-            <View style={styles.summary}>
-              <Text style={styles.summaryLabel}>
-                {owedCents === 0 ? 'All paid' : 'Still owes'}
-              </Text>
-              <Text style={[styles.summaryValue, owedCents === 0 && styles.summaryDone]}>
-                {owedCents === 0 ? '✓' : formatCents(owedCents)}
-              </Text>
-              <Text style={styles.summaryDetail}>
-                {paidCount} of {checklist.length} amotan fully paid
-              </Text>
-            </View>
-          ) : null
-        }
-        renderItem={({ item }) => (
-          <ChecklistRow
-            title={item.title}
-            subtitle={item.dueDate ? `Due ${formatDisplayDate(item.dueDate)}` : undefined}
-            paidCents={item.paidCents}
-            targetCents={item.targetCents}
-            status={item.status}
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.profile}>
+          <Avatar name={student.name} size={64} />
+          <View style={styles.profileBody}>
+            <Text style={styles.name} accessibilityRole="header">
+              {student.name}
+            </Text>
+            {checklist.length === 0 ? null : owedCents === 0 ? (
+              <Pill label="All paid" tone="accent" icon="checkmark" />
+            ) : (
+              <Pill label={`Owes ${formatCents(owedCents)}`} tone="warning" />
+            )}
+          </View>
+        </View>
+
+        {checklist.length > 0 ? (
+          <>
+            <SectionHeader title={`${paidCount} of ${checklist.length} amotan paid`} />
+            <Card padded={false}>
+              {checklist.map((entry, index) => (
+                <ChecklistRow
+                  key={entry.amotanId}
+                  divider={index > 0}
+                  title={entry.title}
+                  subtitle={
+                    entry.status === 'paid'
+                      ? `Paid ${formatCents(entry.paidCents)}`
+                      : entry.dueDate
+                        ? `${formatCents(entry.targetCents - entry.paidCents)} left · due ${formatDisplayDate(entry.dueDate)}`
+                        : undefined
+                  }
+                  paidCents={entry.paidCents}
+                  targetCents={entry.targetCents}
+                  status={entry.status}
+                  onPress={() =>
+                    router.push({
+                      pathname: routes.recordPayment,
+                      params: { studentId: student.id, amotanId: entry.amotanId },
+                    })
+                  }
+                  onCheck={() =>
+                    confirmPayRemaining({
+                      studentId: student.id,
+                      studentName: student.name,
+                      amotanId: entry.amotanId,
+                      amotanTitle: entry.title,
+                      remainingCents: entry.targetCents - entry.paidCents,
+                      onDone: load,
+                    })
+                  }
+                />
+              ))}
+            </Card>
+            <Text style={styles.tip}>Tap a checkbox to record the full remaining amount.</Text>
+          </>
+        ) : (
+          <EmptyState
+            icon="wallet-outline"
+            title="No amotan yet"
+            message="Add one in the Amotan tab and it shows up here."
+          />
+        )}
+      </ScrollView>
+
+      {nextOwed ? (
+        <View style={styles.footer}>
+          <Button
+            label="Record payment"
+            icon="add"
             onPress={() =>
               router.push({
                 pathname: routes.recordPayment,
-                params: { studentId: student.id, amotanId: item.amotanId },
-              })
-            }
-            onCheck={() =>
-              confirmPayRemaining({
-                studentId: student.id,
-                studentName: student.name,
-                amotanId: item.amotanId,
-                amotanTitle: item.title,
-                remainingCents: item.targetCents - item.paidCents,
-                onDone: load,
+                params: { studentId: student.id, amotanId: nextOwed.amotanId },
               })
             }
           />
-        )}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>No amotan yet.</Text>
-            <Text style={styles.message}>Add one in the Amotan tab.</Text>
-          </View>
-        }
-      />
-    </SafeAreaView>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((t) => ({
   screen: {
     flex: 1,
-    backgroundColor: '#F4F6F5',
+    backgroundColor: t.colors.background,
   },
-  centerBox: {
+  content: {
+    paddingHorizontal: space.lg,
+    paddingBottom: space.xxl,
+  },
+  profile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.lg,
+    paddingTop: space.sm,
+    paddingBottom: space.sm,
+  },
+  profileBody: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    backgroundColor: '#F4F6F5',
+    gap: space.sm,
   },
-  headerAction: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#127A52',
-  },
-  listContent: {
-    padding: 16,
-    flexGrow: 1,
-  },
-  summary: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E1E7E3',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    alignItems: 'center',
-  },
-  summaryLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#5B6660',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  summaryValue: {
-    fontSize: 28,
+  name: {
+    fontSize: font.title + 2,
     fontWeight: '800',
-    color: '#8A5A00',
-    marginVertical: 4,
+    color: t.colors.text,
+    letterSpacing: -0.3,
   },
-  summaryDone: {
-    color: '#127A52',
-  },
-  summaryDetail: {
-    fontSize: 14,
-    color: '#5B6660',
-  },
-  empty: {
-    alignItems: 'center',
-    paddingVertical: 32,
-    paddingHorizontal: 24,
-  },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#17211C',
-    marginBottom: 8,
+  tip: {
+    fontSize: font.footnote,
+    color: t.colors.textMuted,
     textAlign: 'center',
+    marginTop: space.sm,
   },
-  message: {
-    fontSize: 14,
-    color: '#5B6660',
-    textAlign: 'center',
+  footer: {
+    paddingHorizontal: space.lg,
+    paddingTop: space.sm,
+    paddingBottom: space.xl,
+    backgroundColor: t.colors.background,
   },
-  button: {
-    marginTop: 16,
-    minHeight: 48,
-    borderRadius: 12,
-    backgroundColor: '#127A52',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  buttonLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-});
+}));

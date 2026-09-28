@@ -1,6 +1,8 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert } from 'react-native';
+import { IconButton } from '../components/ui/IconButton';
+import { ErrorState, LoadingState } from '../components/ui/States';
 import { StudentForm } from '../components/StudentForm';
 import {
   deleteStudent,
@@ -46,13 +48,13 @@ export default function EditStudentScreen() {
       router.back();
     } catch (error) {
       if (error instanceof DuplicateStudentError) {
-        Alert.alert('Already Added', `A student named "${input.name}" already exists.`);
+        Alert.alert('Already added', `A student named "${input.name}" already exists.`);
         return;
       }
       if (__DEV__) {
         console.error('Failed to update student', error);
       }
-      Alert.alert('Unable to Save', 'Could not save the student. Please try again.');
+      Alert.alert('Unable to save', 'Could not save the student. Please try again.');
     }
   }
 
@@ -77,7 +79,7 @@ export default function EditStudentScreen() {
               if (__DEV__) {
                 console.error('Failed to delete student', error);
               }
-              Alert.alert('Unable to Delete', 'Could not delete. Please try again.');
+              Alert.alert('Unable to delete', 'Could not delete. Please try again.');
             }
           },
         },
@@ -86,19 +88,11 @@ export default function EditStudentScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={styles.centerBox}>
-        <ActivityIndicator color="#127A52" />
-      </View>
-    );
+    return <LoadingState />;
   }
 
   if (!student) {
-    return (
-      <View style={styles.centerBox}>
-        <Text style={styles.message}>This student was deleted.</Text>
-      </View>
-    );
+    return <ErrorState message="This student was deleted." onRetry={() => router.back()} />;
   }
 
   return (
@@ -106,42 +100,22 @@ export default function EditStudentScreen() {
       <Stack.Screen
         options={{
           headerRight: () => (
-            <Pressable
-              onPress={handleDelete}
-              accessibilityRole="button"
+            <IconButton
+              icon="trash-outline"
+              tone="danger"
               accessibilityLabel="Delete student"
-              hitSlop={8}
-            >
-              <Text style={styles.deleteAction}>Delete</Text>
-            </Pressable>
+              onPress={handleDelete}
+            />
           ),
         }}
       />
       <StudentForm
         initialName={student.name}
-        submitLabel="Save Changes"
-        busyLabel="Saving..."
+        submitLabel="Save changes"
+        busyLabel="Saving…"
         onSubmit={handleSubmit}
       />
     </>
   );
 }
 
-const styles = StyleSheet.create({
-  centerBox: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    backgroundColor: '#F4F6F5',
-  },
-  message: {
-    fontSize: 15,
-    color: '#5B6660',
-  },
-  deleteAction: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#C63B3B',
-  },
-});

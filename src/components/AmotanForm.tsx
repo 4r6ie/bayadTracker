@@ -1,15 +1,7 @@
 import { useState } from 'react';
-import {
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { makeStyles } from '../theme/ThemeProvider';
+import { space } from '../theme/tokens';
 import type { AmotanInput } from '../types/amotan';
 import {
   parseAmountToCents,
@@ -18,6 +10,8 @@ import {
   validateDueDate,
 } from '../utils/amotanValidation';
 import { DateField } from './DateField';
+import { Button } from './ui/Button';
+import { TextField } from './ui/Controls';
 
 /** Raw text in the form, before it is converted to an `AmotanInput`. */
 export interface AmotanFormValues {
@@ -42,12 +36,8 @@ interface AmotanFormProps {
 }
 
 /** Add / edit amotan form: title, target amount and an optional due date. */
-export function AmotanForm({
-  initialValues,
-  submitLabel,
-  busyLabel,
-  onSubmit,
-}: AmotanFormProps) {
+export function AmotanForm({ initialValues, submitLabel, busyLabel, onSubmit }: AmotanFormProps) {
+  const styles = useStyles();
   const [title, setTitle] = useState(initialValues.title);
   const [amount, setAmount] = useState(initialValues.amount);
   const [dueDate, setDueDate] = useState(initialValues.dueDate);
@@ -93,120 +83,50 @@ export function AmotanForm({
       style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView
-        style={styles.screen}
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.field}>
-          <Text style={styles.label}>Amotan Title</Text>
-          <TextInput
-            value={title}
-            onChangeText={setTitle}
-            placeholder="e.g. Class T-shirt"
-            placeholderTextColor="#8A948E"
-            autoCorrect={false}
-            style={[styles.input, errors.title && styles.inputError]}
-          />
-          {errors.title ? <Text style={styles.error}>{errors.title}</Text> : null}
-        </View>
-
-        <View style={styles.field}>
-          <Text style={styles.label}>Target Amount per Student (₱)</Text>
-          <TextInput
-            value={amount}
-            onChangeText={setAmount}
-            placeholder="150.00"
-            placeholderTextColor="#8A948E"
-            keyboardType="decimal-pad"
-            style={[styles.input, errors.amount && styles.inputError]}
-          />
-          {errors.amount ? (
-            <Text style={styles.error}>{errors.amount}</Text>
-          ) : (
-            <Text style={styles.hint}>
-              Numbers only, no commas (for example 150.00).
-            </Text>
-          )}
-        </View>
-
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <TextField
+          label="Title"
+          value={title}
+          onChangeText={setTitle}
+          placeholder="Class T-shirt"
+          autoCorrect={false}
+          error={errors.title}
+        />
+        <TextField
+          label="Amount per student (₱)"
+          value={amount}
+          onChangeText={setAmount}
+          placeholder="150.00"
+          keyboardType="decimal-pad"
+          error={errors.amount}
+          hint="Numbers only, no commas."
+        />
         <DateField
-          label="Due Date (optional)"
+          label="Due date (optional)"
           value={dueDate}
           onChange={setDueDate}
           error={errors.dueDate}
           optional
           emptyLabel="No deadline"
         />
-
-        <Pressable
-          style={[styles.saveButton, saving && styles.disabled]}
+        <Button
+          label={submitLabel}
+          busy={saving}
+          busyLabel={busyLabel}
+          icon="checkmark"
           onPress={handleSubmit}
-          disabled={saving}
-          accessibilityRole="button"
-        >
-          <Text style={styles.saveLabel}>{saving ? busyLabel : submitLabel}</Text>
-        </Pressable>
+        />
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((t) => ({
   screen: {
     flex: 1,
-    backgroundColor: '#F4F6F5',
+    backgroundColor: t.colors.background,
   },
   content: {
-    padding: 16,
+    padding: space.lg,
   },
-  field: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#17211C',
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E1E7E3',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: '#17211C',
-    minHeight: 50,
-  },
-  inputError: {
-    borderColor: '#C63B3B',
-  },
-  error: {
-    color: '#C63B3B',
-    fontSize: 13,
-    marginTop: 4,
-  },
-  hint: {
-    color: '#5B6660',
-    fontSize: 13,
-    marginTop: 4,
-  },
-  saveButton: {
-    minHeight: 50,
-    borderRadius: 12,
-    backgroundColor: '#127A52',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  disabled: {
-    opacity: 0.5,
-  },
-  saveLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-});
+}));

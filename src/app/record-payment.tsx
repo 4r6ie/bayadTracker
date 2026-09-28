@@ -1,19 +1,25 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { DateField } from '../components/DateField';
+import { Avatar } from '../components/ui/Avatar';
+import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
+import { TextField } from '../components/ui/Controls';
+import { SectionHeader } from '../components/ui/Headers';
+import { Pill } from '../components/ui/Pill';
+import { ProgressBar } from '../components/ui/ProgressBar';
+import { ErrorState, LoadingState } from '../components/ui/States';
 import {
   deletePayment,
   getPaymentForStudentAndAmotan,
@@ -22,12 +28,10 @@ import {
 import { getAmotanById } from '../database/amotanRepository';
 import { getStudentById } from '../database/studentRepository';
 import { useReloadOnSync } from '../sync/useReloadOnSync';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
+import { font, radius, space } from '../theme/tokens';
 import type { Amotan, AmotanPayment, Student } from '../types/amotan';
-import {
-  centsToAmountText,
-  formatCents,
-  parseAmountToCents,
-} from '../utils/amotanValidation';
+import { centsToAmountText, formatCents, parseAmountToCents } from '../utils/amotanValidation';
 import { tapFeedback } from '../utils/feedback';
 import { firstParam } from '../utils/params';
 import { formatDisplayDate, parseDateInput, todayISO } from '../utils/validation';
@@ -37,6 +41,8 @@ import { formatDisplayDate, parseDateInput, todayISO } from '../utils/validation
  * record the next installment, and the history (with delete for mistakes).
  */
 export default function RecordPaymentScreen() {
+  const styles = useStyles();
+  const { theme } = useTheme();
   const params = useLocalSearchParams<{ studentId: string; amotanId: string }>();
   const studentId = firstParam(params.studentId);
   const amotanId = firstParam(params.amotanId);
@@ -89,25 +95,16 @@ export default function RecordPaymentScreen() {
   useReloadOnSync(load);
 
   if (loading) {
-    return (
-      <View style={styles.centerBox}>
-        <ActivityIndicator color="#127A52" />
-      </View>
-    );
+    return <LoadingState />;
   }
-
   if (failed || !student || !amotan) {
     return (
-      <View style={styles.centerBox}>
-        <Text style={styles.emptyTitle}>
-          {failed
-            ? 'Unable to load these payments.'
-            : 'This student or amotan was deleted.'}
-        </Text>
-        <Pressable style={styles.button} onPress={() => router.back()}>
-          <Text style={styles.buttonLabel}>Go Back</Text>
-        </Pressable>
-      </View>
+      <ErrorState
+        message={
+          failed ? "Couldn't load these payments." : 'This student or amotan was deleted.'
+        }
+        onRetry={failed ? load : () => router.back()}
+      />
     );
   }
 
@@ -121,7 +118,7 @@ export default function RecordPaymentScreen() {
     const nextErrors: { amount?: string; paidDate?: string } = {};
     const amountCents = parseAmountToCents(amount);
     if (!amount.trim()) {
-      nextErrors.amount = 'Amount is required.';
+      nextErrors.amount = 'Enter the amount received.';
     } else if (amountCents === null) {
       nextErrors.amount = 'Enter a valid amount greater than 0 (numbers only).';
     } else if (amountCents > remainingCents) {
@@ -132,7 +129,7 @@ export default function RecordPaymentScreen() {
       nextErrors.paidDate = 'Pick the date the money was received.';
     } else if (paidDate > todayISO()) {
       // YYYY-MM-DD strings sort like dates, so a string compare works.
-      nextErrors.paidDate = 'The payment date cannot be in the future.';
+      nextErrors.paidDate = "The payment date can't be in the future.";
     }
     setErrors(nextErrors);
     if (nextErrors.amount || nextErrors.paidDate || amountCents === null) {
@@ -154,7 +151,7 @@ export default function RecordPaymentScreen() {
       if (__DEV__) {
         console.error('Failed to record payment', error);
       }
-      Alert.alert('Unable to Save', 'Could not record the payment. Please try again.');
+      Alert.alert('Unable to save', "The payment wasn't recorded. Try again.");
     } finally {
       setSaving(false);
     }
@@ -163,7 +160,7 @@ export default function RecordPaymentScreen() {
   function handleDelete(payment: AmotanPayment) {
     Alert.alert(
       'Delete this payment?',
-      `${formatCents(payment.amountCents)} on ${formatDisplayDate(payment.paidDate)}. It is removed on both phones.`,
+      `${formatCents(payment.amountCents)} on ${formatDisplayDate(payment.paidDate)}. It's removed on both phones.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -177,7 +174,7 @@ export default function RecordPaymentScreen() {
               if (__DEV__) {
                 console.error('Failed to delete payment', error);
               }
-              Alert.alert('Unable to Delete', 'Could not delete. Please try again.');
+              Alert.alert('Unable to delete', 'Try again.');
             }
           },
         },
@@ -190,225 +187,190 @@ export default function RecordPaymentScreen() {
       style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Stack.Screen options={{ title: student.name }} />
+      <Stack.Screen options={{ title: 'Payments' }} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.summary}>
-          <Text style={styles.summaryTitle}>{amotan.title}</Text>
-          <Text style={styles.summaryLine}>
-            Paid {formatCents(paidCents)} of {formatCents(amotan.amountCents)}
-          </Text>
-          <Text style={[styles.summaryLeft, remainingCents === 0 && styles.summaryDone]}>
-            {remainingCents === 0 ? '✓ Fully paid' : `${formatCents(remainingCents)} left`}
-          </Text>
-        </View>
+        <Card>
+          <View style={styles.who}>
+            <Avatar name={student.name} size={44} />
+            <View style={styles.whoBody}>
+              <Text style={styles.whoName} numberOfLines={1}>
+                {student.name}
+              </Text>
+              <Text style={styles.whoAmotan} numberOfLines={1}>
+                {amotan.title}
+              </Text>
+            </View>
+            {remainingCents === 0 ? (
+              <Pill label="Paid" tone="accent" icon="checkmark" />
+            ) : null}
+          </View>
+          <View style={styles.progress}>
+            <ProgressBar
+              fraction={amotan.amountCents > 0 ? paidCents / amotan.amountCents : 0}
+              tone={remainingCents === 0 ? 'accent' : 'warning'}
+              height={8}
+            />
+          </View>
+          <View style={styles.amounts}>
+            <Text style={styles.amountText}>
+              Paid <Text style={styles.amountStrong}>{formatCents(paidCents)}</Text> of{' '}
+              {formatCents(amotan.amountCents)}
+            </Text>
+            {remainingCents > 0 ? (
+              <Text style={styles.left}>{formatCents(remainingCents)} left</Text>
+            ) : null}
+          </View>
+        </Card>
 
         {remainingCents > 0 ? (
-          <View style={styles.form}>
-            <Text style={styles.sectionTitle}>Record a payment</Text>
-            <View style={styles.field}>
-              <Text style={styles.label}>Amount (₱)</Text>
-              <TextInput
-                value={amount}
-                onChangeText={(text) => {
-                  amountTouched.current = true;
-                  setAmount(text);
-                }}
-                placeholder={centsToAmountText(remainingCents)}
-                placeholderTextColor="#8A948E"
-                keyboardType="decimal-pad"
-                style={[styles.input, errors.amount && styles.inputError]}
-              />
-              {errors.amount ? (
-                <Text style={styles.error}>{errors.amount}</Text>
-              ) : (
-                <Text style={styles.hint}>Lower it if they are paying only part.</Text>
-              )}
-            </View>
+          <>
+            <SectionHeader title="Record a payment" />
+            <TextField
+              label="Amount received (₱)"
+              value={amount}
+              onChangeText={(text) => {
+                amountTouched.current = true;
+                setAmount(text);
+              }}
+              placeholder={centsToAmountText(remainingCents)}
+              keyboardType="decimal-pad"
+              error={errors.amount}
+              hint="Lower it if they're paying only part."
+            />
             <DateField
-              label="Date Received"
+              label="Date received"
               value={paidDate}
               onChange={setPaidDate}
               error={errors.paidDate}
             />
-            <Pressable
-              style={[styles.button, saving && styles.disabled]}
+            <Button
+              label="Record payment"
+              icon="checkmark"
+              busy={saving}
+              busyLabel="Saving…"
               onPress={handleSave}
-              disabled={saving}
-              accessibilityRole="button"
-            >
-              <Text style={styles.buttonLabel}>{saving ? 'Saving...' : 'Record Payment'}</Text>
-            </Pressable>
-          </View>
+            />
+          </>
         ) : null}
 
-        <Text style={styles.sectionTitle}>History</Text>
+        <SectionHeader title="History" />
         {payments.length === 0 ? (
-          <Text style={styles.message}>No payments yet.</Text>
+          <Text style={styles.empty}>No payments yet.</Text>
         ) : (
-          payments.map((payment) => (
-            <View key={payment.id} style={styles.historyRow}>
-              <View style={styles.historyBody}>
-                <Text style={styles.historyAmount}>{formatCents(payment.amountCents)}</Text>
-                <Text style={styles.historyDate}>{formatDisplayDate(payment.paidDate)}</Text>
+          <Card padded={false}>
+            {payments.map((payment, index) => (
+              <View key={payment.id} style={[styles.historyRow, index > 0 && styles.divider]}>
+                <View style={styles.historyIcon}>
+                  <Ionicons name="cash-outline" size={18} color={theme.colors.accentText} />
+                </View>
+                <View style={styles.historyBody}>
+                  <Text style={styles.historyAmount}>{formatCents(payment.amountCents)}</Text>
+                  <Text style={styles.historyDate}>{formatDisplayDate(payment.paidDate)}</Text>
+                </View>
+                <Pressable
+                  onPress={() => handleDelete(payment)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete payment of ${formatCents(payment.amountCents)}`}
+                  hitSlop={10}
+                  style={({ pressed }) => [styles.deleteButton, pressed && { opacity: 0.5 }]}
+                >
+                  <Ionicons name="trash-outline" size={20} color={theme.colors.danger} />
+                </Pressable>
               </View>
-              <Pressable
-                onPress={() => handleDelete(payment)}
-                accessibilityRole="button"
-                accessibilityLabel={`Delete payment of ${formatCents(payment.amountCents)}`}
-                hitSlop={8}
-              >
-                <Text style={styles.deleteLabel}>Delete</Text>
-              </Pressable>
-            </View>
-          ))
+            ))}
+          </Card>
         )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((t) => ({
   screen: {
     flex: 1,
-    backgroundColor: '#F4F6F5',
-  },
-  centerBox: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    backgroundColor: '#F4F6F5',
+    backgroundColor: t.colors.background,
   },
   content: {
-    padding: 16,
-    paddingBottom: 48,
+    padding: space.lg,
+    paddingBottom: space.xxl * 1.5,
   },
-  summary: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E1E7E3',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
+  who: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: space.md,
   },
-  summaryTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#17211C',
+  whoBody: {
+    flex: 1,
   },
-  summaryLine: {
-    fontSize: 14,
-    color: '#5B6660',
-    marginTop: 4,
-  },
-  summaryLeft: {
-    fontSize: 22,
+  whoName: {
+    fontSize: font.subtitle,
     fontWeight: '800',
-    color: '#8A5A00',
-    marginTop: 8,
+    color: t.colors.text,
   },
-  summaryDone: {
-    color: '#127A52',
+  whoAmotan: {
+    fontSize: font.body,
+    color: t.colors.textSecondary,
+    marginTop: 2,
   },
-  form: {
-    marginBottom: 24,
+  progress: {
+    marginTop: space.lg,
   },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#5B6660',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 12,
-  },
-  field: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#17211C',
-    marginBottom: 8,
-  },
-  input: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E1E7E3',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: '#17211C',
-    minHeight: 50,
-  },
-  inputError: {
-    borderColor: '#C63B3B',
-  },
-  error: {
-    color: '#C63B3B',
-    fontSize: 13,
-    marginTop: 4,
-  },
-  hint: {
-    color: '#5B6660',
-    fontSize: 13,
-    marginTop: 4,
-  },
-  button: {
-    minHeight: 50,
-    borderRadius: 12,
-    backgroundColor: '#127A52',
+  amounts: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    marginTop: 8,
+    marginTop: space.sm,
   },
-  disabled: {
-    opacity: 0.5,
+  amountText: {
+    fontSize: font.footnote,
+    color: t.colors.textSecondary,
   },
-  buttonLabel: {
-    fontSize: 15,
+  amountStrong: {
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: t.colors.text,
+  },
+  left: {
+    fontSize: font.footnote,
+    fontWeight: '700',
+    color: t.colors.warningText,
+  },
+  empty: {
+    fontSize: font.body,
+    color: t.colors.textSecondary,
   },
   historyRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E1E7E3',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
+    gap: space.md,
+    paddingHorizontal: space.md + 2,
+    paddingVertical: space.md,
+  },
+  divider: {
+    borderTopWidth: 1,
+    borderTopColor: t.colors.divider,
+  },
+  historyIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.md,
+    backgroundColor: t.colors.accentTint,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   historyBody: {
     flex: 1,
   },
   historyAmount: {
-    fontSize: 15,
+    fontSize: font.callout,
     fontWeight: '700',
-    color: '#17211C',
+    color: t.colors.text,
   },
   historyDate: {
-    fontSize: 13,
-    color: '#5B6660',
+    fontSize: font.footnote,
+    color: t.colors.textSecondary,
     marginTop: 2,
   },
-  deleteLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#C63B3B',
+  deleteButton: {
+    padding: space.sm,
   },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#17211C',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  message: {
-    fontSize: 14,
-    color: '#5B6660',
-  },
-});
+}));

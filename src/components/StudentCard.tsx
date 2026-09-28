@@ -1,6 +1,12 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Text, View } from 'react-native';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
+import { font, space } from '../theme/tokens';
 import type { StudentSummary } from '../types/amotan';
 import { formatCents } from '../utils/amotanValidation';
+import { Avatar } from './ui/Avatar';
+import { Card } from './ui/Card';
+import { Pill } from './ui/Pill';
 
 interface StudentCardProps {
   student: StudentSummary;
@@ -9,96 +15,62 @@ interface StudentCardProps {
   onLongPress?: () => void;
 }
 
-function standing(student: StudentSummary): { text: string; settled: boolean } {
-  if (student.amotanCount === 0) {
-    return { text: 'No amotan yet', settled: true };
-  }
-  if (student.owedCents === 0) {
-    return { text: 'All paid', settled: true };
-  }
-  return {
-    text: `Owes ${formatCents(student.owedCents)} · ${student.paidCount} of ${student.amotanCount} paid`,
-    settled: false,
-  };
-}
-
-/** One student in the list: initial, name, and what they still owe. */
+/** One student in the list: avatar, name, and what they still owe. */
 export function StudentCard({ student, onPress, onLongPress }: StudentCardProps) {
-  const initial = student.name.charAt(0).toUpperCase();
-  const { text, settled } = standing(student);
+  const styles = useStyles();
+  const { theme } = useTheme();
+  const hasAmotan = student.amotanCount > 0;
+  const settled = hasAmotan && student.owedCents === 0;
+  const detail = hasAmotan
+    ? `${student.paidCount} of ${student.amotanCount} amotan paid`
+    : 'No amotan yet';
 
   return (
-    <Pressable
+    <Card
       onPress={onPress}
       onLongPress={onLongPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${student.name}. ${text}.`}
+      accessibilityLabel={`${student.name}. ${
+        settled ? 'All paid' : hasAmotan ? `Owes ${formatCents(student.owedCents)}` : detail
+      }.`}
       accessibilityHint="Opens the checklist. Long press to delete."
-      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      style={styles.row}
     >
-      <View style={styles.avatar}>
-        <Text style={styles.avatarLabel}>{initial}</Text>
-      </View>
+      <Avatar name={student.name} />
       <View style={styles.body}>
         <Text style={styles.name} numberOfLines={1}>
           {student.name}
         </Text>
-        <Text style={[styles.standing, settled && styles.settled]} numberOfLines={1}>
-          {text}
+        <Text style={styles.detail} numberOfLines={1}>
+          {detail}
         </Text>
       </View>
-      <Text style={styles.chevron}>›</Text>
-    </Pressable>
+      {settled ? (
+        <Pill label="All paid" tone="accent" icon="checkmark" />
+      ) : hasAmotan ? (
+        <Pill label={`Owes ${formatCents(student.owedCents)}`} tone="warning" />
+      ) : null}
+      <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
+    </Card>
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
+const useStyles = makeStyles((t) => ({
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E1E7E3',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#E3F2EB',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  avatarLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#127A52',
+    gap: space.md,
   },
   body: {
     flex: 1,
   },
   name: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#17211C',
+    fontSize: font.callout,
+    fontWeight: '700',
+    color: t.colors.text,
   },
-  standing: {
-    fontSize: 13,
-    color: '#8A5A00',
+  detail: {
+    fontSize: font.footnote,
+    color: t.colors.textSecondary,
     marginTop: 2,
   },
-  settled: {
-    color: '#127A52',
-  },
-  chevron: {
-    fontSize: 22,
-    color: '#B9C4BE',
-    marginLeft: 8,
-  },
-});
+}));

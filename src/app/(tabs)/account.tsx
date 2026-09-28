@@ -1,6 +1,17 @@
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useAuth } from '../../auth/AuthProvider';
+import { Avatar } from '../../components/ui/Avatar';
+import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
+import { SegmentedControl } from '../../components/ui/Controls';
+import { ScreenHeader, SectionHeader } from '../../components/ui/Headers';
+import { Pill } from '../../components/ui/Pill';
 import { syncNow, useSyncStatus } from '../../sync/syncManager';
+import { ACCENT_NAMES, ACCENTS, STYLES, type StyleName } from '../../theme/palettes';
+import { makeStyles, useTheme } from '../../theme/ThemeProvider';
+import { font, space, TOUCH } from '../../theme/tokens';
+import { tapFeedback } from '../../utils/feedback';
 
 function formatTime(iso: string | null): string {
   if (!iso) {
@@ -17,25 +28,33 @@ function formatTime(iso: string | null): string {
 const STATE_LABEL = {
   idle: 'Up to date',
   syncing: 'Syncing…',
-  offline: 'Offline — changes are saved on this phone',
+  offline: 'Offline, saved on this phone',
   error: 'Last sync failed',
-  disabled: 'Not set up (this phone only)',
+  disabled: 'This phone only',
 } as const;
 
-/** Who is signed in, whether the data reached the other phone, sign out. */
+const STYLE_OPTIONS = (Object.keys(STYLES) as StyleName[]).map((value) => ({
+  value,
+  label: STYLES[value].label,
+}));
+
+/** Who is signed in, sync status, appearance, and sign out. */
 export default function AccountScreen() {
+  const styles = useStyles();
   const { auth, signOut } = useAuth();
+  const { theme, setStyle, setAccent } = useTheme();
   const status = useSyncStatus();
+  const email = auth.status === 'signedIn' ? auth.email : null;
 
   function handleSignOut() {
     const warning =
       status.pending > 0
-        ? `${status.pending} change(s) on this phone have not been uploaded yet. They stay here and upload after someone signs in again.`
-        : 'You will need internet to sign in again.';
+        ? `${status.pending} change(s) on this phone haven't been uploaded yet. They stay here and upload after someone signs in again.`
+        : "You'll need internet to sign in again.";
     Alert.alert('Sign out?', warning, [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Sign Out',
+        text: 'Sign out',
         style: 'destructive',
         onPress: async () => {
           try {
@@ -44,7 +63,7 @@ export default function AccountScreen() {
             if (__DEV__) {
               console.error('Sign-out failed', error);
             }
-            Alert.alert('Unable to Sign Out', 'Please try again.');
+            Alert.alert('Unable to sign out', 'Try again.');
           }
         },
       },
@@ -53,120 +72,200 @@ export default function AccountScreen() {
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <View style={styles.card}>
-        <Text style={styles.cardLabel}>Signed in as</Text>
-        <Text style={styles.cardValue}>
-          {auth.status === 'signedIn' ? auth.email : 'Nobody (local-only mode)'}
-        </Text>
-      </View>
+      <ScreenHeader title="Account" />
 
-      <View style={styles.card}>
-        <Text style={styles.cardLabel}>Sync</Text>
-        <Text
-          style={[
-            styles.cardValue,
-            status.state === 'error' && styles.errorText,
-          ]}
-        >
-          {STATE_LABEL[status.state]}
-        </Text>
-        {status.state === 'error' && status.error ? (
-          <Text style={styles.detail}>{status.error}</Text>
-        ) : null}
-        <Text style={styles.detail}>
-          Waiting to upload: {status.pending}
-        </Text>
-        <Text style={styles.detail}>Last synced: {formatTime(status.lastSyncedAt)}</Text>
-        {status.state !== 'disabled' ? (
-          <Pressable
-            style={[styles.button, status.state === 'syncing' && styles.disabled]}
-            onPress={() => syncNow()}
-            disabled={status.state === 'syncing'}
-            accessibilityRole="button"
-          >
-            <Text style={styles.buttonLabel}>Sync Now</Text>
-          </Pressable>
-        ) : null}
-      </View>
+      <Card style={styles.profile}>
+        <Avatar name={email ?? 'This phone'} size={48} />
+        <View style={styles.profileBody}>
+          <Text style={styles.profileName} numberOfLines={1}>
+            {email ?? 'Local-only mode'}
+          </Text>
+          <Text style={styles.muted}>
+            {email ? 'Signed in on this phone' : 'Supabase is not set up'}
+          </Text>
+        </View>
+      </Card>
+
+      {status.state !== 'disabled' ? (
+        <>
+          <SectionHeader title="Sync" />
+          <Card>
+            <View style={styles.rowBetween}>
+              <Text style={styles.cardTitle}>{STATE_LABEL[status.state]}</Text>
+              <Pill
+                label={status.pending > 0 ? `${status.pending} waiting` : 'Nothing waiting'}
+                tone={status.pending > 0 ? 'warning' : 'accent'}
+              />
+            </View>
+            {status.state === 'error' && status.error ? (
+              <Text style={styles.error}>{status.error}</Text>
+            ) : null}
+            <Text style={styles.muted}>Last synced {formatTime(status.lastSyncedAt)}</Text>
+            <Button
+              label="Sync now"
+              icon="sync-outline"
+              variant="secondary"
+              busy={status.state === 'syncing'}
+              busyLabel="Syncing…"
+              onPress={() => syncNow()}
+              style={styles.cardButton}
+            />
+          </Card>
+        </>
+      ) : null}
+
+      <SectionHeader title="Appearance" />
+      <Card>
+        <Text style={styles.fieldLabel}>Style</Text>
+        <SegmentedControl options={STYLE_OPTIONS} value={theme.style} onChange={setStyle} />
+        <Text style={[styles.muted, styles.hint]}>{STYLES[theme.style].description}</Text>
+
+        <Text style={[styles.fieldLabel, styles.spaced]}>Color</Text>
+        <View style={styles.swatches} accessibilityRole="radiogroup">
+          {ACCENT_NAMES.map((name) => {
+            const active = theme.accentName === name;
+            return (
+              <Pressable
+                key={name}
+                onPress={() => {
+                  tapFeedback();
+                  setAccent(name);
+                }}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: active }}
+                accessibilityLabel={ACCENTS[name].label}
+                style={styles.swatchHit}
+              >
+                <View
+                  style={[
+                    styles.swatch,
+                    { backgroundColor: ACCENTS[name].main },
+                    active && styles.swatchActive,
+                  ]}
+                >
+                  {active ? (
+                    <Ionicons name="checkmark" size={20} color={theme.colors.onAccent} />
+                  ) : null}
+                </View>
+                <Text style={[styles.swatchLabel, active && styles.swatchLabelActive]}>
+                  {ACCENTS[name].label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Text style={[styles.muted, styles.hint]}>Saved on this phone only.</Text>
+      </Card>
 
       {auth.status === 'signedIn' ? (
-        <Pressable
-          style={styles.signOut}
+        <Button
+          label="Sign out"
+          icon="log-out-outline"
+          variant="danger"
           onPress={handleSignOut}
-          accessibilityRole="button"
-        >
-          <Text style={styles.signOutLabel}>Sign Out</Text>
-        </Pressable>
+          style={styles.signOut}
+        />
       ) : null}
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((t) => ({
   screen: {
     flex: 1,
-    backgroundColor: '#F4F6F5',
+    backgroundColor: t.colors.background,
   },
   content: {
-    padding: 16,
+    paddingHorizontal: space.lg,
+    paddingBottom: space.xxl,
   },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E1E7E3',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+  profile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
   },
-  cardLabel: {
-    fontSize: 13,
+  profileBody: {
+    flex: 1,
+  },
+  profileName: {
+    fontSize: font.subtitle,
     fontWeight: '700',
-    color: '#5B6660',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
+    color: t.colors.text,
   },
-  cardValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#17211C',
+  rowBetween: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space.sm,
+    marginBottom: space.xs,
   },
-  errorText: {
-    color: '#C63B3B',
+  cardTitle: {
+    flex: 1,
+    fontSize: font.callout,
+    fontWeight: '700',
+    color: t.colors.text,
   },
-  detail: {
-    fontSize: 14,
-    color: '#5B6660',
-    marginTop: 6,
+  muted: {
+    fontSize: font.footnote,
+    color: t.colors.textSecondary,
   },
-  button: {
-    minHeight: 48,
-    borderRadius: 12,
-    backgroundColor: '#127A52',
+  error: {
+    fontSize: font.footnote,
+    color: t.colors.danger,
+    marginBottom: space.xs,
+  },
+  cardButton: {
+    marginTop: space.md,
+  },
+  fieldLabel: {
+    fontSize: font.footnote,
+    fontWeight: '700',
+    color: t.colors.textSecondary,
+    marginBottom: space.sm,
+  },
+  spaced: {
+    marginTop: space.lg,
+  },
+  hint: {
+    marginTop: space.sm,
+  },
+  swatches: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: space.md,
+  },
+  swatchHit: {
+    alignItems: 'center',
+    width: '30%',
+    minHeight: TOUCH,
+  },
+  swatch: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
   },
-  disabled: {
-    opacity: 0.5,
+  swatchActive: {
+    borderWidth: 3,
+    borderColor: t.colors.surface,
+    shadowColor: t.colors.shadow,
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
-  buttonLabel: {
-    fontSize: 15,
+  swatchLabel: {
+    fontSize: font.caption,
+    color: t.colors.textSecondary,
+    marginTop: space.xs,
+  },
+  swatchLabelActive: {
+    color: t.colors.text,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
   signOut: {
-    minHeight: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#C63B3B',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
+    marginTop: space.xl,
   },
-  signOutLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#C63B3B',
-  },
-});
+}));

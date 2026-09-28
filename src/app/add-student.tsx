@@ -15,7 +15,7 @@ export default function AddStudentScreen(){
         }catch (error) {
             if (error instanceof DuplicateStudentError){
                 Alert.alert(
-                    'Already Added',
+                    'Already added',
                     `A Student named "${input.name}" already exists.`
                 );
                 return;
@@ -29,8 +29,8 @@ export default function AddStudentScreen(){
     return (
         <StudentForm
         initialName=""
-        submitLabel="Save Student"
-        busyLabel = "Saving..."
+        submitLabel="Save student"
+        busyLabel="Saving…"
         onSubmit={handleSubmit}
         />
     );

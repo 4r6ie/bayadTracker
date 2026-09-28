@@ -1,6 +1,12 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { Pressable, Text, View } from 'react-native';
+import { makeStyles, useTheme } from '../theme/ThemeProvider';
+import { font, radius, space, TOUCH } from '../theme/tokens';
 import type { PaymentStatus } from '../types/amotan';
 import { formatCents } from '../utils/amotanValidation';
+import { Avatar } from './ui/Avatar';
+import { StatusPill } from './ui/Pill';
+import { ProgressBar } from './ui/ProgressBar';
 
 const STATUS_LABEL: Record<PaymentStatus, string> = {
   paid: 'Paid',
@@ -9,10 +15,12 @@ const STATUS_LABEL: Record<PaymentStatus, string> = {
 };
 
 /**
- * The checkbox: empty (not paid), half-filled amber (partly paid) or a green
- * check (paid). Drawn with Views so it looks the same on every phone.
+ * The checkbox: empty (not paid), half-filled (partly paid) or a check
+ * (paid). Drawn with Views so it looks the same on every phone.
  */
 function StatusCheck({ status }: { status: PaymentStatus }) {
+  const styles = useStyles();
+  const { theme } = useTheme();
   return (
     <View
       style={[
@@ -21,7 +29,9 @@ function StatusCheck({ status }: { status: PaymentStatus }) {
         status === 'partial' && styles.checkPartial,
       ]}
     >
-      {status === 'paid' ? <Text style={styles.checkMark}>✓</Text> : null}
+      {status === 'paid' ? (
+        <Ionicons name="checkmark" size={18} color={theme.colors.onAccent} />
+      ) : null}
       {status === 'partial' ? <View style={styles.checkHalf} /> : null}
     </View>
   );
@@ -31,6 +41,8 @@ interface ChecklistRowProps {
   /** The amotan title (student checklist) or student name (amotan roster). */
   title: string;
   subtitle?: string;
+  /** Show an avatar for this name (the roster lists people). */
+  avatarName?: string;
   paidCents: number;
   targetCents: number;
   status: PaymentStatus;
@@ -38,22 +50,32 @@ interface ChecklistRowProps {
   onPress: () => void;
   /** Tapping the checkbox of an unpaid / partly paid row: pay the rest. */
   onCheck: () => void;
+  /** Draws a divider above the row (every row but the first in a card). */
+  divider?: boolean;
 }
 
 /**
  * One line of a checklist, used by both details screens: checkbox, name,
- * "₱50.00 of ₱150.00" and a progress bar.
+ * status and, when partly paid, a progress bar.
  */
 export function ChecklistRow({
   title,
   subtitle,
+  avatarName,
   paidCents,
   targetCents,
   status,
   onPress,
   onCheck,
+  divider = false,
 }: ChecklistRowProps) {
+  const styles = useStyles();
   const progress = targetCents > 0 ? Math.min(paidCents / targetCents, 1) : 0;
+  const leftCents = Math.max(targetCents - paidCents, 0);
+  const detail =
+    subtitle ??
+    (status === 'paid' ? `Paid ${formatCents(paidCents)}` : `${formatCents(leftCents)} left`);
+
   return (
     <Pressable
       onPress={onPress}
@@ -62,90 +84,80 @@ export function ChecklistRow({
         paidCents
       )} of ${formatCents(targetCents)}.`}
       accessibilityHint="Opens the payment history"
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.row, divider && styles.divider, pressed && styles.pressed]}
     >
       <Pressable
         onPress={status === 'paid' ? onPress : onCheck}
         accessibilityRole="checkbox"
-        accessibilityState={{ checked: status === 'paid' ? true : status === 'partial' ? 'mixed' : false }}
+        accessibilityState={{
+          checked: status === 'paid' ? true : status === 'partial' ? 'mixed' : false,
+        }}
         accessibilityLabel={
           status === 'paid' ? `${title} is paid` : `Mark ${title} as fully paid`
         }
-        hitSlop={10}
+        hitSlop={8}
         style={styles.checkHit}
       >
         <StatusCheck status={status} />
       </Pressable>
+      {avatarName ? <Avatar name={avatarName} size={34} /> : null}
       <View style={styles.body}>
-        <View style={styles.titleRow}>
-          <Text style={styles.title} numberOfLines={1}>
-            {title}
-          </Text>
-          <Text
-            style={[
-              styles.amount,
-              status === 'paid' && styles.amountPaid,
-              status === 'partial' && styles.amountPartial,
-            ]}
-          >
-            {formatCents(paidCents)} / {formatCents(targetCents)}
-          </Text>
-        </View>
-        <View style={styles.track}>
-          <View
-            style={[
-              styles.fill,
-              status === 'partial' && styles.fillPartial,
-              { width: `${progress * 100}%` },
-            ]}
-          />
-        </View>
-        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+        <Text style={styles.title} numberOfLines={1}>
+          {title}
+        </Text>
+        {status === 'partial' ? (
+          <View style={styles.progress}>
+            <ProgressBar fraction={progress} tone="warning" height={4} />
+          </View>
+        ) : null}
+        <Text style={[styles.detail, status !== 'paid' && !subtitle && styles.detailOwed]}>
+          {detail}
+        </Text>
       </View>
+      <StatusPill
+        status={status}
+        partialLabel={`${formatCents(paidCents)} / ${formatCents(targetCents)}`}
+      />
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((t) => ({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E1E7E3',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
+    gap: space.md,
+    paddingHorizontal: space.md + 2,
+    paddingVertical: space.md,
+    minHeight: TOUCH + 16,
+  },
+  divider: {
+    borderTopWidth: 1,
+    borderTopColor: t.colors.divider,
   },
   pressed: {
-    opacity: 0.7,
+    backgroundColor: t.colors.surfaceMuted,
   },
   checkHit: {
-    marginRight: 12,
+    padding: 2,
   },
   check: {
     width: 28,
     height: 28,
-    borderRadius: 8,
+    borderRadius: radius.sm,
     borderWidth: 2,
-    borderColor: '#B9C4BE',
-    backgroundColor: '#FFFFFF',
+    borderColor: t.colors.border,
+    backgroundColor: t.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   checkPaid: {
-    borderColor: '#127A52',
-    backgroundColor: '#127A52',
+    borderColor: t.colors.accent,
+    backgroundColor: t.colors.accent,
   },
   checkPartial: {
-    borderColor: '#D08A00',
-  },
-  checkMark: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '800',
-    lineHeight: 20,
+    borderColor: t.colors.warning,
   },
   checkHalf: {
     position: 'absolute',
@@ -153,51 +165,26 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: '50%',
-    backgroundColor: '#F2C14E',
+    backgroundColor: t.colors.warning,
   },
   body: {
     flex: 1,
   },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   title: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#17211C',
-    marginRight: 8,
+    fontSize: font.callout,
+    fontWeight: '700',
+    color: t.colors.text,
   },
-  amount: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#5B6660',
+  progress: {
+    marginTop: space.xs + 2,
+    marginBottom: 2,
   },
-  amountPaid: {
-    color: '#127A52',
+  detail: {
+    fontSize: font.footnote,
+    color: t.colors.textSecondary,
+    marginTop: 2,
   },
-  amountPartial: {
-    color: '#8A5A00',
+  detailOwed: {
+    color: t.colors.warningText,
   },
-  track: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#EDF1EE',
-    marginTop: 8,
-    overflow: 'hidden',
-  },
-  fill: {
-    height: '100%',
-    backgroundColor: '#127A52',
-  },
-  fillPartial: {
-    backgroundColor: '#F2C14E',
-  },
-  subtitle: {
-    fontSize: 12,
-    color: '#5B6660',
-    marginTop: 6,
-  },
-});
+}));
