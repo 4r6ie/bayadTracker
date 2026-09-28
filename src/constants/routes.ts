@@ -6,8 +6,9 @@
  * because Expo Router's typed routes check them.
  */
 export const routes = {
-  /** Tabs. */
-  students: '/',
+  /** Tabs. The dashboard is the landing tab. */
+  dashboard: '/',
+  students: '/students',
   amotanList: '/amotan',
   account: '/account',
 

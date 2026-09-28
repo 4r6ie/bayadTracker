@@ -66,6 +66,17 @@ export interface AmotanSummary extends Amotan {
   collectedCents: number;
 }
 
+/** A recorded installment with the names needed to show it on its own. */
+export interface RecentPayment {
+  id: string;
+  studentId: string;
+  studentName: string;
+  amotanId: string;
+  amotanTitle: string;
+  amountCents: number;
+  paidDate: string;
+}
+
 /** One student in an amotan's roster, with how much they have paid. */
 export interface AmotanRosterEntry {
   studentId: string;

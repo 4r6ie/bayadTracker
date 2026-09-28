@@ -17,7 +17,12 @@ is needed.
 
 Tabs:
 
-- **Students** (`src/app/(tabs)/index.tsx`) — every student with what they
+- **Dashboard** (`src/app/(tabs)/index.tsx`, the landing tab) — total
+  collected vs expected and what is still to collect, progress per amotan, the
+  five students who owe the most, and the ten latest payments. Every row opens
+  the matching details screen. Built from the same summary queries as the
+  other tabs, so the numbers always agree.
+- **Students** (`src/app/(tabs)/students.tsx`) — every student with what they
   still owe ("Owes ₱250.00 · 1 of 3 paid" or "All paid"), a search field, and
   "+" to add one. Tap a student for their checklist; long-press to delete.
 - **Amotan** (`src/app/(tabs)/amotan.tsx`) — every amotan with its target,
@@ -137,7 +142,7 @@ src/
 ├── app/
 │   ├── _layout.tsx           root stack, login gate, auto-sync
 │   ├── login.tsx
-│   ├── (tabs)/               Students, Amotan, Account
+│   ├── (tabs)/               Dashboard, Students, Amotan, Account
 │   ├── student/[id].tsx      a student's checklist
 │   ├── amotan/[id].tsx       who paid / who has not
 │   ├── record-payment.tsx

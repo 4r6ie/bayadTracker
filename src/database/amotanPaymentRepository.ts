@@ -4,6 +4,7 @@ import type {
   AmotanPaymentInput,
   AmotanRosterEntry,
   AmotanSummary,
+  RecentPayment,
   StudentChecklistEntry,
   StudentSummary,
 } from '../types/amotan';
@@ -306,5 +307,44 @@ export async function getAmotanSummaries(): Promise<AmotanSummary[]> {
     studentCount: Number(row.student_count),
     paidCount: Number(row.paid_count),
     collectedCents: Number(row.collected_cents),
+  }));
+}
+
+/**
+ * The newest installments, for the dashboard. An INNER JOIN on purpose:
+ * only payments whose student and amotan are both still live.
+ */
+export async function getRecentPayments(limit = 10): Promise<RecentPayment[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{
+    id: string;
+    student_id: string;
+    student_name: string;
+    amotan_id: string;
+    amotan_title: string;
+    amount_cents: number;
+    paid_date: string;
+  }>(
+    `SELECT p.id, p.student_id, s.name AS student_name,
+            p.amotan_id, a.title AS amotan_title,
+            p.amount_cents, p.paid_date
+     FROM amotan_payments p
+     JOIN students s ON s.id = p.student_id
+     JOIN amotan a ON a.id = p.amotan_id
+     WHERE p.deleted_at IS NULL
+       AND s.deleted_at IS NULL
+       AND a.deleted_at IS NULL
+     ORDER BY p.paid_date DESC, p.created_at DESC
+     LIMIT ?`,
+    [limit]
+  );
+  return rows.map((row) => ({
+    id: String(row.id),
+    studentId: String(row.student_id),
+    studentName: String(row.student_name),
+    amotanId: String(row.amotan_id),
+    amotanTitle: String(row.amotan_title),
+    amountCents: Number(row.amount_cents),
+    paidDate: String(row.paid_date),
   }));
 }
